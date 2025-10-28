@@ -13,9 +13,9 @@ Goals of this project
 
 **Architecture:** MERN Stack + Docker + TypeScript + Microservices
 
-**Methodology:** Agile SCRUM
+<!-- **Methodology:** Agile SCRUM
 
-**Author:** Ajil PS (Full Stack Developer – MERN)
+**Author:** Ajil PS (Full Stack Developer – MERN) -->
 
 **Version:** 1.0.0
 
