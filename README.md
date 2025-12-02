@@ -1,11 +1,15 @@
 # Project Open
 
+### Micro finance
+
 Goals of this project
 
 - Learn Microservices
 - Learn git and git work flow
 - Team work
 - Docker
+- Rect
+- Nest.js
 
 ---
 
