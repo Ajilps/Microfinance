@@ -1,378 +1,192 @@
-# Project Open
+# 🏦 MicroFinance SaaS Platform
 
-### Micro finance
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/Ajilps/Microfinance)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 
-Goals of this project
+### A Modern, User-Friendly Financial Management System
 
-- Learn Microservices
-- Learn git and git work flow
-- Team work
-- Docker
-- Rect
-- Nest.js
+**Architecture:** Scalable Modular Monolith (NestJS) with Load-Balanced Multi-Instance Deployment
 
 ---
 
-# 🏦 MicroFinance Web Application Documentation
+## 📖 Overview
 
-**Architecture:** MERN Stack + Docker + TypeScript + Microservices
+MicroFinance SaaS is a comprehensive, production-ready platform for micro-finance management that enables financial institutions to onboard multiple clients with isolated data, manage user accounts, process loans, and track financial operations seamlessly.
 
-<!-- **Methodology:** Agile SCRUM
+### ✨ Key Features
 
-**Author:** Ajil PS (Full Stack Developer – MERN) -->
-
-**Version:** 1.0.0
-
----
-
-## 📘 1. Project Overview
-
-### 🎯 Objective
-
-The **MicroFinance Web Application** is a modular, containerized financial management system where:
-
-- **Users** can create accounts, deposit money, and apply for loans based on their savings balance.
-- **Admins** can manage users, approve loans, edit payment records, and monitor transactions.
-
-The system is built for **scalability and extensibility**, following the **microservice architecture** using **MERN + TypeScript** and **Docker**.
-
-Future modules (e.g. Notifications, Analytics, Payment Gateways) can be seamlessly added as independent services.
+- 🏢 **Multi-Tenant Architecture** - Complete data isolation for multiple organizations
+- 🔐 **Enterprise Security** - JWT authentication, bcrypt hashing, RBAC, HTTPS/TLS
+- 💰 **Account Management** - Savings accounts, deposits, withdrawals, transaction history
+- 📊 **Loan Processing** - Application workflow, eligibility checking, repayment tracking
+- 👨‍💼 **Admin Dashboard** - User management, loan approvals, analytics
+- 🐳 **Docker Ready** - Multi-stage builds, horizontal scaling, load balancing
+- ⚡ **High Performance** - Optimized queries, caching support, aggregation pipelines
+- 🎨 **Modern UI/UX** - React 18 + TypeScript + Zustand state management
 
 ---
 
-## 🧩 2. System Architecture
+## 🛠️ Tech Stack
 
-### 🔹 Technology Stack
-
-| Layer                | Technology                     | Description                                     |
-| -------------------- | ------------------------------ | ----------------------------------------------- |
-| **Frontend**         | React + TypeScript             | User/Admin UI with component-based architecture |
-| **Backend**          | Node.js + Express + TypeScript | REST APIs divided into microservices            |
-| **Database**         | MongoDB                        | NoSQL data store (one per service)              |
-| **Containerization** | Docker + Docker Compose        | For consistent, isolated environments           |
-| **API Gateway**      | Nginx                          | Reverse proxy routing between microservices     |
-| **Auth**             | JWT + bcrypt                   | Secure authentication and authorization         |
-| **Version Control**  | Git + GitHub                   | Source control and CI/CD integration            |
-| **Workflow**         | Agile SCRUM                    | Iterative, sprint-based development             |
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Frontend** | React 18 + TypeScript + Vite + Zustand | Modern UI with lightweight state management |
+| **Backend** | NestJS | Modular monolithic REST API server |
+| **Database** | MongoDB | NoSQL with aggregation pipelines |
+| **Reverse Proxy** | Nginx | Load balancer + static file server |
+| **Container** | Docker + Docker Compose | Multi-stage builds for production |
+| **Auth** | JWT + bcrypt + HTTPS | Secure authentication |
 
 ---
 
-## 🏗️ 3. Microservice Architecture Design
+## 🚀 Quick Start
 
-The application is split into **independent microservices**, each running in its own Docker container.
+### Prerequisites
+- Node.js 18+
+- Docker & Docker Compose
+- Git
 
-### 📦 Core Services
-
-| Service              | Description                                                                       | Port   | Database      |
-| -------------------- | --------------------------------------------------------------------------------- | ------ | ------------- |
-| **User Service**     | Handles registration, authentication, and user profile data.                      | `5001` | `users-db`    |
-| **Account Service**  | Manages deposits, withdrawals, and balances.                                      | `5002` | `accounts-db` |
-| **Loan Service**     | Calculates loan eligibility, processes loan applications, and tracks repayments.  | `5003` | `loans-db`    |
-| **Admin Service**    | Enables admins to manage users, update loan/payment records, and view dashboards. | `5004` | `admin-db`    |
-| **API Gateway**      | Routes requests from the frontend to the correct microservice.                    | `80`   | —             |
-| **Frontend (React)** | Web interface for users and admins.                                               | `3000` | —             |
-
----
-
-### 🧭 Service Interaction Diagram
-
-```
-       [ React Frontend ]
-                ↓
-        [ Nginx API Gateway ]
-     ↙         ↓          ↘
-[User Service] [Account Service] [Loan Service]
-        ↓             ↓              ↓
-     [users-db]   [accounts-db]   [loans-db]
-                ↓
-          [Admin Service]
-                ↓
-             [admin-db]
-
-```
-
-**Communication:**
-
-- Services communicate using **REST (HTTP)** for simplicity.
-- In future, **Message Queues (e.g. RabbitMQ)** can be introduced for async communication (e.g. when processing loan approvals).
-
----
-
-## ⚙️ 4. Folder Structure
-
-```
-/microfinance-app/
-│
-├── client/                     # React + TypeScript Frontend
-│   ├── src/
-│   ├── Dockerfile
-│
-├── gateway/                    # Nginx API Gateway
-│   ├── nginx.conf
-│   ├── Dockerfile
-│
-├── services/
-│   ├── user-service/
-│   │   ├── src/
-│   │   ├── Dockerfile
-│   │   └── tsconfig.json
-│   │
-│   ├── account-service/
-│   │   ├── src/
-│   │   ├── Dockerfile
-│   │   └── tsconfig.json
-│   │
-│   ├── loan-service/
-│   ├── admin-service/
-│
-├── docker-compose.yml
-├── .env
-└── README.md
-
-```
-
----
-
-## 🧱 5. Example Docker Compose Setup
-
-**`docker-compose.yml`**
-
-```yaml
-version: "3.8"
-
-services:
-  api-gateway:
-    build: ./gateway
-    ports:
-      - "80:80"
-    depends_on:
-      - user-service
-      - account-service
-      - loan-service
-      - admin-service
-
-  user-service:
-    build: ./services/user-service
-    ports:
-      - "5001:5001"
-    environment:
-      - MONGO_URI=mongodb://user-db:27017/users
-      - JWT_SECRET=${JWT_SECRET}
-    depends_on:
-      - user-db
-
-  account-service:
-    build: ./services/account-service
-    ports:
-      - "5002:5002"
-    environment:
-      - MONGO_URI=mongodb://account-db:27017/accounts
-    depends_on:
-      - account-db
-
-  loan-service:
-    build: ./services/loan-service
-    ports:
-      - "5003:5003"
-    environment:
-      - MONGO_URI=mongodb://loan-db:27017/loans
-    depends_on:
-      - loan-db
-
-  admin-service:
-    build: ./services/admin-service
-    ports:
-      - "5004:5004"
-    environment:
-      - MONGO_URI=mongodb://admin-db:27017/admin
-    depends_on:
-      - admin-db
-
-  user-db:
-    image: mongo
-    volumes:
-      - ./data/user:/data/db
-
-  account-db:
-    image: mongo
-    volumes:
-      - ./data/account:/data/db
-
-  loan-db:
-    image: mongo
-    volumes:
-      - ./data/loan:/data/db
-
-  admin-db:
-    image: mongo
-    volumes:
-      - ./data/admin:/data/db
-```
-
-Run everything with:
+### Installation
 
 ```bash
-docker-compose up --build
+# Clone the repository
+git clone https://github.com/Ajilps/Microfinance.git
+cd Microfinance
 
+# Create environment file
+cp .env.example .env
+# Edit .env with your configuration
+
+# Start with Docker (recommended)
+docker-compose up -d
+
+# Or run manually
+# Terminal 1 - Backend
+cd server && npm install && npm run start:dev
+
+# Terminal 2 - Frontend
+cd client && npm install && npm run dev
+```
+
+### Access the Application
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:3000/api
+- **Health Check**: http://localhost:3000/health
+
+### Production Deployment
+
+```bash
+# Build and deploy
+docker-compose build
+docker-compose up -d
+
+# Scale backend instances
+docker-compose up -d --scale backend=5
 ```
 
 ---
 
-## 🧩 6. Service Responsibilities
+## 📚 Documentation
 
-### 👤 **User Service**
+### Getting Started
+- [📖 Getting Started Guide](docs/01-getting-started.md) - Detailed installation and setup
+- [🏗️ Architecture Overview](docs/02-architecture.md) - System design and tech stack
+- [📁 Project Structure](docs/03-project-structure.md) - Folder organization
 
-- Register & authenticate users (JWT)
-- Update user profiles
-- Manage user roles (user/admin)
-- Handle password encryption with `bcrypt`
+### Development
+- [🐳 Docker Setup](docs/04-docker-setup.md) - Container configuration and scaling
+- [🔐 Authentication](docs/05-authentication.md) - Auth flow and security implementation
+- [🗄️ Database Design](docs/06-database-design.md) - MongoDB schemas and relationships
+- [🎨 Frontend Guide](docs/07-frontend-guide.md) - React, Zustand, components
+- [⚙️ Backend Guide](docs/08-backend-guide.md) - NestJS modules and services
+- [📡 API Documentation](docs/09-api-documentation.md) - Complete API reference
+- [🧪 Testing Guide](docs/10-testing.md) - Unit and E2E testing
 
----
+### Operations
+- [🚀 Deployment Guide](docs/11-deployment.md) - Cloud deployment and CI/CD
+- [📊 Monitoring & Logging](docs/12-monitoring.md) - Health checks and performance
+- [🔒 Security Guide](docs/13-security.md) - Best practices and audit checklist
+- [⚡ Performance Optimization](docs/14-performance.md) - Caching, indexing, optimization
+- [🐛 Troubleshooting](docs/15-troubleshooting.md) - Common issues and solutions
 
-### 💰 **Account Service**
-
-- Create and manage user savings accounts
-- Deposit / withdraw money
-- Maintain transaction history
-- Calculate current balance
-
----
-
-### 💳 **Loan Service**
-
-- Check user loan eligibility (based on savings)
-- Create new loan applications
-- Track repayments
-- Handle interest calculation
-
----
-
-### 🧑‍💼 **Admin Service**
-
-- Manage all users and accounts
-- Approve or reject loans
-- Edit or update payments
-- Generate basic reports
+### Reference
+- [🤝 Contributing Guide](docs/16-contributing.md) - How to contribute
+- [🔧 Environment Variables](docs/17-environment-variables.md) - Complete env reference
+- [🎨 UI Design Guide](docs/18-ui-design-guide.md) - Design system and components
+- [❓ FAQ](docs/19-faq.md) - Frequently asked questions
+- [📚 Resources](docs/20-resources.md) - Learning materials and links
 
 ---
 
-## 💻 7. Technology Details (TypeScript + Express)
+## 🗺️ Roadmap
 
-Example `server.ts` for Account Service:
+### ✅ Phase 1 (Completed)
+- Multi-tenant architecture
+- User authentication & authorization
+- Account & loan management
+- Admin dashboard
+- Docker containerization
 
-```tsx
-import express from "express";
-import dotenv from "dotenv";
-import mongoose from "mongoose";
+### 🚧 Phase 2 (In Progress)
+- Mobile application (React Native)
+- Advanced analytics
+- Email & SMS notifications
+- Document upload & KYC verification
 
-dotenv.config();
-const app = express();
-app.use(express.json());
-
-app.get("/api/account/health", (req, res) => res.send("Account Service OK"));
-
-mongoose
-  .connect(process.env.MONGO_URI!)
-  .then(() => console.log("Mongo Connected"))
-  .catch((err) => console.log(err));
-
-app.listen(5002, () => console.log("Account Service on 5002"));
-```
-
----
-
-## 🔐 8. Authentication & Authorization Flow
-
-1. User registers through **User Service** → gets JWT token.
-2. JWT token stored in localStorage (frontend) and attached to all requests.
-3. Middleware in each microservice validates JWT using a shared `JWT_SECRET`.
-4. Admin routes are protected via role-based middleware.
+### 📅 Phase 3 (Planned)
+- AI-powered credit scoring
+- Payment gateway integration
+- Multi-currency support
+- GraphQL API
+- Real-time notifications (WebSocket)
 
 ---
 
-## 🧠 9. Agile SCRUM Workflow
+## 🤝 Contributing
 
-### 🔹 Project Roles
+We welcome contributions! Please read our [Contributing Guide](docs/16-contributing.md) for details on our code of conduct and the process for submitting pull requests.
 
-| Role              | Responsibility                                  |
-| ----------------- | ----------------------------------------------- |
-| **Product Owner** | Defines project goals & backlog (you or client) |
-| **Scrum Master**  | Ensures sprint flow & resolves blockers         |
-| **Developers**    | Build features across services (you + team)     |
-
----
-
-### 🔹 Sprint Breakdown (Example 6-Sprint Plan)
-
-| Sprint       | Duration | Deliverables                             |
-| ------------ | -------- | ---------------------------------------- |
-| **Sprint 1** | 2 weeks  | Project setup, Docker environment, CI/CD |
-| **Sprint 2** | 2 weeks  | User Service + Auth                      |
-| **Sprint 3** | 2 weeks  | Account Service + Transactions           |
-| **Sprint 4** | 2 weeks  | Loan Service + Eligibility Logic         |
-| **Sprint 5** | 2 weeks  | Admin Service + Dashboard                |
-| **Sprint 6** | 2 weeks  | Integration, Testing, Deployment         |
+### Quick Contribution Steps
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
-### 🔹 Agile Artifacts
+## 📄 License
 
-- **Product Backlog:** Full list of user stories
-- **Sprint Backlog:** Subset for each sprint
-- **Daily Scrum:** 15-min update meeting
-- **Sprint Review:** Demo progress
-- **Sprint Retrospective:** Evaluate what to improve
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-### 🧾 Example User Stories
+## 👥 Team & Support
 
-| ID   | User Story                                                     | Priority |
-| ---- | -------------------------------------------------------------- | -------- |
-| US01 | As a user, I want to register and log in securely.             | High     |
-| US02 | As a user, I want to see my account balance and deposit money. | High     |
-| US03 | As a user, I want to apply for a loan based on my balance.     | High     |
-| US04 | As an admin, I want to approve or reject loan applications.    | Medium   |
-| US05 | As an admin, I want to edit user payment records.              | Medium   |
-| US06 | As a user, I want to view my loan repayment history.           | Low      |
+### Project Maintainers
+- **Ajilps** - *Initial work* - [@Ajilps](https://github.com/Ajilps)
+
 
 ---
 
-## 📊 10. Deployment & Scaling
+## 📞 Contact
 
-- Use **Docker Compose** in development.
-- For production, migrate to **Kubernetes** or **Docker Swarm**.
-- CI/CD via **GitHub Actions** → build → test → push Docker images.
-- Deploy on **AWS EC2**, **Render**, or **DigitalOcean**.
-- Use **MongoDB Atlas** for production database hosting.
-
----
-
-## 📈 11. Future Enhancements
-
-- Payment gateway (Razorpay/Stripe)
-- Notification Service (Email/SMS)
-- Analytics & Reporting Service
-- Microservice Event Bus (Kafka/RabbitMQ)
-- Role-based dashboard (React Admin Panel)
-- Logging & monitoring with Prometheus + Grafana
+- **Website**: [https://microfinance.ajilps.com](https://microfinance.ajilps.com)
+- **GitHub**: [@Ajilps](https://github.com/Ajilps)
+<!-- - **Twitter**: [@Ajilps](https://twitter.com/Ajilps) -->
+- **LinkedIn**: [Ajilps](https://linkedin.com/in/Ajilps)
+<!-- - **Email**: contact@Ajilps.com -->
 
 ---
 
-## ✅ 12. Summary
+<div align="center">
 
-| Feature         | Current                  | Future                 |
-| --------------- | ------------------------ | ---------------------- |
-| Auth & Roles    | ✅ Done (User/Admin)     | ⬜ Add OAuth/2FA       |
-| Savings Account | ✅ Done                  | ⬜ Integrate payments  |
-| Loan System     | ✅ Basic Eligibility     | ⬜ Add interest engine |
-| Admin Panel     | ✅ CRUD Control          | ⬜ Add Analytics       |
-| Docker          | ✅ Multi-container setup | ⬜ Kubernetes scaling  |
-| SCRUM Workflow  | ✅ Active                | ⬜ Add Jira Automation |
+### ⭐ Star this repository if you find it helpful!
 
----
+Made with ❤️ by developers, for developers
 
-- Basic microservice boilerplates
-- Gateway config
-- Docker setup
-- TypeScript setup for each service
+**[View Documentation](docs/)** | **[Report Bug](https://github.com/Ajilps/Microfinance/issues)** | **[Request Feature](https://github.com/Ajilps/Microfinance/issues)**
+
+</div>
