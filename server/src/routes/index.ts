@@ -1,6 +1,8 @@
 import { Router, Request, Response } from "express";
 import authRouter from "../modules/auth/router";
 import userRouter from "../modules/user/router";
+import organizationRouter from "../modules/organization/router";
+import adminAuthRouter from "../modules/admin/router";
 
 const router = Router();
 
@@ -21,5 +23,7 @@ router.get("/health", (req: Request, res: Response) => {
  */
 router.use("/v1/auth", authRouter);
 router.use("/v1/users", userRouter);
+router.use("/v1/organizations", organizationRouter);
+router.use("/v1/admin/auth", adminAuthRouter);
 
 export default router;
