@@ -26,7 +26,7 @@ Detailed breakdown of the MicroFinance SaaS project folder organization and file
 │   ├── vite.config.ts               # Vite configuration
 │   └── tsconfig.json
 │
-├── server/                          # NestJS Backend
+├── server/                          # Node.js + Express.js Backend
 │   ├── src/
 │   │   ├── modules/                 # Feature modules
 │   │   │   ├── health/              # Health check endpoint
@@ -96,14 +96,13 @@ Detailed breakdown of the MicroFinance SaaS project folder organization and file
 │   │   │   ├── jwt.config.ts
 │   │   │   └── app.config.ts
 │   │   │
-│   │   ├── app.module.ts            # Root module
-│   │   └── main.ts                  # Application entry
+│   │   ├── app.ts                   # Express app setup
+│   │   └── server.ts                # Application entry
 │   │
 │   ├── test/
 │   │   ├── app.e2e-spec.ts
 │   │   └── jest-e2e.json
 │   ├── Dockerfile
-│   ├── nest-cli.json
 │   ├── package.json
 │   └── tsconfig.json
 │
@@ -130,6 +129,7 @@ Detailed breakdown of the MicroFinance SaaS project folder organization and file
 ### Frontend (`client/`)
 
 #### Components Structure
+
 ```
 src/components/
 ├── common/              # Shared components
@@ -148,6 +148,7 @@ src/components/
 ```
 
 #### Pages Structure
+
 ```
 src/pages/
 ├── Login.tsx
@@ -162,18 +163,19 @@ src/pages/
 ### Backend (`server/`)
 
 #### Module Pattern
-Each module follows NestJS conventions:
+
+Each module follows a clean Express.js router pattern:
 
 ```
 module-name/
-├── dto/                 # Data Transfer Objects
-│   ├── create-*.dto.ts
-│   └── update-*.dto.ts
-├── schemas/             # MongoDB schemas
-│   └── *.schema.ts
-├── *.controller.ts      # HTTP endpoints
+├── validators/          # Request validation schemas
+│   ├── create-*.validator.ts
+│   └── update-*.validator.ts
+├── models/              # Mongoose models
+│   └── *.model.ts
+├── *.router.ts          # Express routes (HTTP endpoints)
 ├── *.service.ts         # Business logic
-└── *.module.ts          # Module definition
+└── *.controller.ts      # Route handler functions
 ```
 
 ---
@@ -182,26 +184,29 @@ module-name/
 
 ### Backend Entry Point
 
-**`server/src/main.ts`**
+**`server/src/server.ts`**
+
 ```typescript
 // Application bootstrap
-// - Creates NestJS application
+// - Creates Express application
 // - Configures middleware (helmet, CORS, cookies)
-// - Sets up global pipes and filters
+// - Registers routes and error handlers
 // - Starts HTTP server
 ```
 
-**`server/src/app.module.ts`**
+**`server/src/app.ts`**
+
 ```typescript
-// Root module
-// - Imports all feature modules
+// Express app setup
+// - Registers all feature routers
 // - Configures database connection
-// - Sets up configuration management
+// - Sets up global middleware
 ```
 
 ### Frontend Entry Point
 
 **`client/src/main.tsx`**
+
 ```typescript
 // React application entry
 // - Renders root component
@@ -210,6 +215,7 @@ module-name/
 ```
 
 **`client/src/App.tsx`**
+
 ```typescript
 // Main application component
 // - Defines routing structure
@@ -223,34 +229,34 @@ module-name/
 
 ### Backend Configuration
 
-**`server/nest-cli.json`**
-- NestJS CLI configuration
-- Build settings
-- Source/dist directories
-
 **`server/tsconfig.json`**
+
 - TypeScript compiler options
 - Path mappings
 - Module resolution
 
 **`server/package.json`**
-- Dependencies (NestJS, Mongoose, Passport, etc.)
+
+- Dependencies (Express.js, Mongoose, jsonwebtoken, etc.)
 - Scripts (dev, build, test)
 - Project metadata
 
 ### Frontend Configuration
 
 **`client/vite.config.ts`**
+
 - Vite build configuration
 - Dev server settings
 - Plugin configuration
 
 **`client/tsconfig.json`**
+
 - TypeScript settings for React
 - JSX configuration
 - Path aliases
 
 **`client/package.json`**
+
 - Dependencies (React, Zustand, Axios, etc.)
 - Build scripts
 - Development tools
@@ -262,6 +268,7 @@ module-name/
 ### Backend Dockerfile
 
 **`server/Dockerfile`**
+
 ```dockerfile
 # Multi-stage build
 # Stage 1: Development dependencies + build
@@ -272,6 +279,7 @@ module-name/
 ### Frontend Dockerfile
 
 **`client/Dockerfile`**
+
 ```dockerfile
 # Multi-stage build
 # Stage 1: Build React app with Vite
@@ -282,6 +290,7 @@ module-name/
 ### Nginx Configuration
 
 **`nginx/nginx.conf`**
+
 - Load balancing configuration
 - Proxy settings for backend API
 - Static file serving for frontend
@@ -293,7 +302,9 @@ module-name/
 ## 📝 Environment Files
 
 ### `.env.example`
+
 Template for environment variables:
+
 ```bash
 # Server
 NODE_ENV=development
@@ -317,6 +328,7 @@ CORS_ORIGIN=http://localhost:5173
 ## 🧪 Test Structure
 
 ### Backend Tests
+
 ```
 server/test/
 ├── unit/                # Unit tests
@@ -330,6 +342,7 @@ server/test/
 ```
 
 ### Frontend Tests
+
 ```
 client/src/
 ├── __tests__/
@@ -352,7 +365,7 @@ docs/
 ├── 05-authentication.md         # Auth implementation
 ├── 06-database-design.md        # Database schemas
 ├── 07-frontend-guide.md         # React development
-├── 08-backend-guide.md          # NestJS development
+├── 08-backend-guide.md          # Express.js development
 ├── 09-api-documentation.md      # API reference
 ├── 10-testing.md                # Testing guide
 ├── 11-deployment.md             # Deployment strategies
@@ -372,6 +385,7 @@ docs/
 ## 🎯 Naming Conventions
 
 ### Files
+
 - **Components**: PascalCase (`UserProfile.tsx`)
 - **Services**: camelCase (`auth.service.ts`)
 - **Utilities**: camelCase (`formatDate.ts`)
@@ -379,11 +393,13 @@ docs/
 - **Tests**: `*.spec.ts` or `*.test.tsx`
 
 ### Folders
+
 - **Lowercase with hyphens**: `user-service/`
 - **Plural for collections**: `components/`, `utils/`
 - **Singular for single items**: `config/`, `common/`
 
 ### Code
+
 - **Variables/Functions**: camelCase
 - **Classes/Interfaces**: PascalCase
 - **Constants**: UPPER_SNAKE_CASE
@@ -395,23 +411,23 @@ docs/
 
 ### Common File Locations
 
-| What you need | Where to find it |
-|--------------|------------------|
-| API endpoints | `server/src/modules/*/**.controller.ts` |
-| Business logic | `server/src/modules/*/**.service.ts` |
+| What you need    | Where to find it                            |
+| ---------------- | ------------------------------------------- |
+| API endpoints    | `server/src/modules/*/**.controller.ts`     |
+| Business logic   | `server/src/modules/*/**.service.ts`        |
 | Database schemas | `server/src/modules/*/schemas/**.schema.ts` |
-| React components | `client/src/components/**/*.tsx` |
-| State management | `client/src/store/**/*.ts` |
-| API calls | `client/src/services/api.ts` |
-| Type definitions | `client/src/types/**/*.ts` |
-| Configuration | `server/src/config/**/*.ts` |
+| React components | `client/src/components/**/*.tsx`            |
+| State management | `client/src/store/**/*.ts`                  |
+| API calls        | `client/src/services/api.ts`                |
+| Type definitions | `client/src/types/**/*.ts`                  |
+| Configuration    | `server/src/config/**/*.ts`                 |
 
 ---
 
 ## 📚 Related Documentation
 
 - [Architecture Overview](02-architecture.md) - System design
-- [Backend Guide](08-backend-guide.md) - NestJS development
+- [Backend Guide](08-backend-guide.md) - Express.js development
 - [Frontend Guide](07-frontend-guide.md) - React development
 - [Docker Setup](04-docker-setup.md) - Container configuration
 

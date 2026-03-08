@@ -7,7 +7,7 @@
 
 ### A Modern, User-Friendly Financial Management System
 
-**Architecture:** Scalable Modular Monolith (NestJS) with Load-Balanced Multi-Instance Deployment
+**Architecture:** Scalable Modular Monolith (Node.js + Express.js) with Load-Balanced Multi-Instance Deployment
 
 ---
 
@@ -30,20 +30,21 @@ MicroFinance SaaS is a comprehensive, production-ready platform for micro-financ
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Frontend** | React 18 + TypeScript + Vite + Zustand | Modern UI with lightweight state management |
-| **Backend** | NestJS | Modular monolithic REST API server |
-| **Database** | MongoDB | NoSQL with aggregation pipelines |
-| **Reverse Proxy** | Nginx | Load balancer + static file server |
-| **Container** | Docker + Docker Compose | Multi-stage builds for production |
-| **Auth** | JWT + bcrypt + HTTPS | Secure authentication |
+| Layer             | Technology                             | Purpose                                     |
+| ----------------- | -------------------------------------- | ------------------------------------------- |
+| **Frontend**      | React 18 + TypeScript + Vite + Zustand | Modern UI with lightweight state management |
+| **Backend**       | Node.js + Express.js                   | Modular monolithic REST API server          |
+| **Database**      | MongoDB                                | NoSQL with aggregation pipelines            |
+| **Reverse Proxy** | Nginx                                  | Load balancer + static file server          |
+| **Container**     | Docker + Docker Compose                | Multi-stage builds for production           |
+| **Auth**          | JWT + bcrypt + HTTPS                   | Secure authentication                       |
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Node.js 18+
 - Docker & Docker Compose
 - Git
@@ -71,6 +72,7 @@ cd client && npm install && npm run dev
 ```
 
 ### Access the Application
+
 - **Frontend**: http://localhost:5173
 - **Backend API**: http://localhost:3000/api
 - **Health Check**: http://localhost:3000/health
@@ -91,20 +93,23 @@ docker-compose up -d --scale backend=5
 ## 📚 Documentation
 
 ### Getting Started
+
 - [📖 Getting Started Guide](docs/01-getting-started.md) - Detailed installation and setup
 - [🏗️ Architecture Overview](docs/02-architecture.md) - System design and tech stack
 - [📁 Project Structure](docs/03-project-structure.md) - Folder organization
 
 ### Development
+
 - [🐳 Docker Setup](docs/04-docker-setup.md) - Container configuration and scaling
 - [🔐 Authentication](docs/05-authentication.md) - Auth flow and security implementation
 - [🗄️ Database Design](docs/06-database-design.md) - MongoDB schemas and relationships
 - [🎨 Frontend Guide](docs/07-frontend-guide.md) - React, Zustand, components
-- [⚙️ Backend Guide](docs/08-backend-guide.md) - NestJS modules and services
+- [⚙️ Backend Guide](docs/08-backend-guide.md) - Express.js modules and services
 - [📡 API Documentation](docs/09-api-documentation.md) - Complete API reference
 - [🧪 Testing Guide](docs/10-testing.md) - Unit and E2E testing
 
 ### Operations
+
 - [🚀 Deployment Guide](docs/11-deployment.md) - Cloud deployment and CI/CD
 - [📊 Monitoring & Logging](docs/12-monitoring.md) - Health checks and performance
 - [🔒 Security Guide](docs/13-security.md) - Best practices and audit checklist
@@ -112,6 +117,7 @@ docker-compose up -d --scale backend=5
 - [🐛 Troubleshooting](docs/15-troubleshooting.md) - Common issues and solutions
 
 ### Reference
+
 - [🤝 Contributing Guide](docs/16-contributing.md) - How to contribute
 - [🔧 Environment Variables](docs/17-environment-variables.md) - Complete env reference
 - [🎨 UI Design Guide](docs/18-ui-design-guide.md) - Design system and components
@@ -123,6 +129,7 @@ docker-compose up -d --scale backend=5
 ## 🗺️ Roadmap
 
 ### ✅ Phase 1 (Completed)
+
 - Multi-tenant architecture
 - User authentication & authorization
 - Account & loan management
@@ -130,12 +137,14 @@ docker-compose up -d --scale backend=5
 - Docker containerization
 
 ### 🚧 Phase 2 (In Progress)
+
 - Mobile application (React Native)
 - Advanced analytics
 - Email & SMS notifications
 - Document upload & KYC verification
 
 ### 📅 Phase 3 (Planned)
+
 - AI-powered credit scoring
 - Payment gateway integration
 - Multi-currency support
@@ -149,6 +158,7 @@ docker-compose up -d --scale backend=5
 We welcome contributions! Please read our [Contributing Guide](docs/16-contributing.md) for details on our code of conduct and the process for submitting pull requests.
 
 ### Quick Contribution Steps
+
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
@@ -166,8 +176,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 👥 Team & Support
 
 ### Project Maintainers
-- **Ajilps** - *Initial work* - [@Ajilps](https://github.com/Ajilps)
 
+- **Ajilps** - _Initial work_ - [@Ajilps](https://github.com/Ajilps)
 
 ---
 

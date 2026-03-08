@@ -53,7 +53,7 @@ Complete index of all documentation files for the MicroFinance SaaS platform.
    - UI patterns
 
 8. **[Backend Development Guide](08-backend-guide.md)**
-   - NestJS modules
+   - Express.js routers and modules
    - Services and controllers
    - Middleware and guards
    - Best practices
@@ -145,22 +145,27 @@ Complete index of all documentation files for the MicroFinance SaaS platform.
 ### By Topic
 
 **Authentication & Security**
+
 - [Authentication Guide](05-authentication.md)
 - [Security Guide](13-security.md)
 
 **Database**
+
 - [Database Design](06-database-design.md)
 - [Performance Optimization](14-performance.md)
 
 **Frontend Development**
+
 - [Frontend Guide](07-frontend-guide.md)
 - [UI Design Guide](18-ui-design-guide.md)
 
 **Backend Development**
+
 - [Backend Guide](08-backend-guide.md)
 - [API Documentation](09-api-documentation.md)
 
 **DevOps**
+
 - [Docker Setup](04-docker-setup.md)
 - [Deployment Guide](11-deployment.md)
 - [Monitoring](12-monitoring.md)
@@ -169,28 +174,28 @@ Complete index of all documentation files for the MicroFinance SaaS platform.
 
 ## 📊 Documentation Status
 
-| Document | Status | Last Updated |
-|----------|--------|--------------|
-| Getting Started | ✅ Complete | 2026-01-18 |
-| Architecture | ✅ Complete | 2026-01-18 |
-| Project Structure | ✅ Complete | 2026-01-18 |
-| Docker Setup | ✅ Complete | 2026-01-18 |
-| Authentication | 🚧 In Progress | - |
-| Database Design | 🚧 In Progress | - |
-| Frontend Guide | 🚧 In Progress | - |
-| Backend Guide | 🚧 In Progress | - |
-| API Documentation | 🚧 In Progress | - |
-| Testing | 📝 Planned | - |
-| Deployment | 📝 Planned | - |
-| Monitoring | 📝 Planned | - |
-| Security | 📝 Planned | - |
-| Performance | 📝 Planned | - |
-| Troubleshooting | 📝 Planned | - |
-| Contributing | 📝 Planned | - |
-| Environment Variables | 📝 Planned | - |
-| UI Design Guide | 📝 Planned | - |
-| FAQ | 📝 Planned | - |
-| Resources | 📝 Planned | - |
+| Document              | Status         | Last Updated |
+| --------------------- | -------------- | ------------ |
+| Getting Started       | ✅ Complete    | 2026-01-18   |
+| Architecture          | ✅ Complete    | 2026-01-18   |
+| Project Structure     | ✅ Complete    | 2026-01-18   |
+| Docker Setup          | ✅ Complete    | 2026-01-18   |
+| Authentication        | 🚧 In Progress | -            |
+| Database Design       | 🚧 In Progress | -            |
+| Frontend Guide        | 🚧 In Progress | -            |
+| Backend Guide         | 🚧 In Progress | -            |
+| API Documentation     | 🚧 In Progress | -            |
+| Testing               | 📝 Planned     | -            |
+| Deployment            | 📝 Planned     | -            |
+| Monitoring            | 📝 Planned     | -            |
+| Security              | 📝 Planned     | -            |
+| Performance           | 📝 Planned     | -            |
+| Troubleshooting       | 📝 Planned     | -            |
+| Contributing          | 📝 Planned     | -            |
+| Environment Variables | 📝 Planned     | -            |
+| UI Design Guide       | 📝 Planned     | -            |
+| FAQ                   | 📝 Planned     | -            |
+| Resources             | 📝 Planned     | -            |
 
 ---
 

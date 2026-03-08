@@ -9,6 +9,7 @@ Complete guide to installing and running the MicroFinance SaaS platform.
 Before you begin, ensure you have the following installed:
 
 ### Required Software
+
 - **Node.js** 18+ and npm
 - **Docker** and Docker Compose
 - **Git**
@@ -55,6 +56,7 @@ cp .env.example .env
 ```
 
 **Important Environment Variables:**
+
 ```bash
 # Server Configuration
 NODE_ENV=development
@@ -91,6 +93,7 @@ docker-compose down
 #### Option B: Manual Setup
 
 **Terminal 1 - Backend:**
+
 ```bash
 cd server
 npm install
@@ -98,6 +101,7 @@ npm run start:dev
 ```
 
 **Terminal 2 - Frontend:**
+
 ```bash
 cd client
 npm install
@@ -105,6 +109,7 @@ npm run dev
 ```
 
 **Terminal 3 - MongoDB (if not using Docker):**
+
 ```bash
 # Install MongoDB locally or use MongoDB Atlas
 mongod --dbpath /path/to/data
@@ -113,6 +118,7 @@ mongod --dbpath /path/to/data
 ### 4. Access the Application
 
 Once running, access:
+
 - **Frontend**: http://localhost:5173
 - **Backend API**: http://localhost:3000/api
 - **Health Check**: http://localhost:3000/health
@@ -130,7 +136,7 @@ cd server
 npm install
 
 # Start development server with hot reload
-npm run start:dev
+npm run dev
 
 # Run tests
 npm run test
@@ -142,7 +148,7 @@ npm run test:e2e
 npm run build
 
 # Start production build
-npm run start:prod
+npm start
 ```
 
 ### Frontend Development
@@ -178,14 +184,14 @@ npm run lint
 Create `docker-compose.dev.yml`:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   # MongoDB with exposed port for local development
   mongodb:
     image: mongo:7.0
     ports:
-      - "27017:27017"  # Exposed for local access
+      - "27017:27017" # Exposed for local access
     volumes:
       - mongo-data:/data/db
     environment:
@@ -213,7 +219,7 @@ services:
       - mongodb
     networks:
       - dev-network
-    command: npm run start:dev
+    command: npm run dev
 
   # Frontend in development mode
   frontend:
@@ -321,6 +327,7 @@ curl http://localhost:3000/health
 ```
 
 Expected response:
+
 ```json
 {
   "status": "ok",
@@ -357,6 +364,7 @@ curl -X POST http://localhost:3000/api/auth/login \
 ### 3. Access Frontend
 
 Open http://localhost:5173 in your browser and verify:
+
 - Login page loads correctly
 - Can register a new user
 - Can login with credentials
@@ -368,8 +376,7 @@ Open http://localhost:5173 in your browser and verify:
 
 ```bash
 # Development
-npm run dev              # Start dev server (backend)
-npm run start:dev        # Start with watch mode (backend)
+npm run dev              # Start dev server with hot reload (backend)
 npm run dev              # Start Vite dev server (frontend)
 
 # Build
@@ -469,6 +476,7 @@ Now that you have the application running:
 ## 🆘 Getting Help
 
 If you encounter issues:
+
 - Check [Troubleshooting Guide](15-troubleshooting.md)
 - Read [FAQ](19-faq.md)
 - Open an issue on [GitHub](https://github.com/Ajilps/Microfinance/issues)

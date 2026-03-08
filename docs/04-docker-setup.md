@@ -7,6 +7,7 @@ Complete guide to Docker configuration, containerization, and scaling strategies
 ## 📋 Overview
 
 The application uses Docker for:
+
 - **Consistent environments** across development and production
 - **Easy deployment** with docker-compose
 - **Horizontal scaling** of backend instances
@@ -46,7 +47,7 @@ The application uses Docker for:
 **`docker-compose.yml`**
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   # Nginx Load Balancer
@@ -76,7 +77,7 @@ services:
       - NODE_ENV=production
     restart: unless-stopped
 
-  # NestJS Backend (Scalable)
+  # Express.js Backend (Scalable)
   backend:
     build: ./server
     expose:
@@ -100,7 +101,7 @@ services:
   mongodb:
     image: mongo:7.0
     expose:
-      - "27017"  # Internal network only, NOT exposed to host
+      - "27017" # Internal network only, NOT exposed to host
     volumes:
       - mongo-data:/data/db
       - ./mongo-init:/docker-entrypoint-initdb.d
@@ -184,7 +185,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
-        
+
         # Timeouts
         proxy_connect_timeout 60s;
         proxy_send_timeout 60s;
@@ -202,7 +203,7 @@ server {
 
 ---
 
-## 📦 NestJS Backend Dockerfile
+## 📦 Express.js Backend Dockerfile
 
 **`server/Dockerfile`**
 
@@ -238,7 +239,7 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy built application from development stage
 COPY --from=development /app/dist ./dist
 
-# Expose NestJS default port
+# Expose Express.js default port
 EXPOSE 3000
 
 # Health check
@@ -326,14 +327,14 @@ server {
 **`docker-compose.dev.yml`**
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   # MongoDB with exposed port for local development
   mongodb:
     image: mongo:7.0
     ports:
-      - "27017:27017"  # Exposed for local access
+      - "27017:27017" # Exposed for local access
     volumes:
       - mongo-data-dev:/data/db
     environment:
@@ -361,7 +362,7 @@ services:
       - mongodb
     networks:
       - dev-network
-    command: npm run start:dev
+    command: npm run dev
 
   # Frontend in development mode
   frontend:
@@ -552,27 +553,32 @@ docker inspect --format='{{.State.Health.Status}}' microfinance-backend
 ## 🎯 Best Practices
 
 ### 1. Multi-Stage Builds
+
 ✅ Use multi-stage builds to minimize image size
 ✅ Separate development and production stages
 ✅ Only include production dependencies in final image
 
 ### 2. Layer Caching
+
 ✅ Copy package.json before source code
 ✅ Install dependencies before copying code
 ✅ Leverage Docker layer caching
 
 ### 3. Security
+
 ✅ Use specific image versions (not `latest`)
 ✅ Run containers as non-root user
 ✅ Scan images for vulnerabilities
 ✅ Keep base images updated
 
 ### 4. Networking
+
 ✅ Use custom networks for isolation
 ✅ Don't expose database ports to host
 ✅ Use environment variables for configuration
 
 ### 5. Volumes
+
 ✅ Use named volumes for persistent data
 ✅ Mount source code in development
 ✅ Exclude node_modules from mounts

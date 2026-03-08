@@ -33,7 +33,7 @@ Complete folder structure created for the MicroFinance SaaS platform based on th
 │       ├── utils/                     # Helper utilities
 │       └── types/                     # TypeScript interfaces
 │
-├── server/                            # ✅ NestJS Backend
+├── server/                            # ✅ Node.js + Express.js Backend
 │   ├── src/
 │   │   ├── modules/                   # Feature modules
 │   │   │   ├── health/                # Health check
@@ -74,11 +74,13 @@ Complete folder structure created for the MicroFinance SaaS platform based on th
 ## 📝 Files Created
 
 ### Configuration Files
+
 - ✅ `.env.example` - Environment variables template
 - ✅ `.gitignore` - Git ignore rules
 - ✅ `.gitkeep` files - Preserve empty directories in git
 
 ### Documentation Files
+
 - ✅ `README.md` - Main project README
 - ✅ `docs/README.md` - Documentation index
 - ✅ `docs/01-getting-started.md` - Installation guide
@@ -93,18 +95,22 @@ Complete folder structure created for the MicroFinance SaaS platform based on th
 ### Total Folders Created: 30+
 
 **Client (Frontend):**
+
 - 8 folders for React application structure
 - Organized by components, pages, store, services, utils, types
 
 **Server (Backend):**
-- 20+ folders for NestJS modules
+
+- 20+ folders for Express.js modules
 - Organized by feature modules (user, account, loan, etc.)
 - Common utilities and configuration
 
 **Documentation:**
+
 - 1 docs folder with 5 documentation files
 
 **Infrastructure:**
+
 - 1 nginx folder for load balancer configuration
 
 ---
@@ -112,6 +118,7 @@ Complete folder structure created for the MicroFinance SaaS platform based on th
 ## 🎯 Next Steps
 
 ### 1. Initialize Client (React + Vite)
+
 ```bash
 cd client
 npm create vite@latest . -- --template react-ts
@@ -119,17 +126,17 @@ npm install
 npm install zustand axios react-router-dom
 ```
 
-### 2. Initialize Server (NestJS)
+### 2. Initialize Server (Node.js + Express.js)
+
 ```bash
 cd server
-npm i -g @nestjs/cli
-nest new . --skip-git
-npm install @nestjs/mongoose mongoose
-npm install @nestjs/jwt @nestjs/passport passport passport-jwt
-npm install bcrypt class-validator class-transformer
+npm init -y
+npm install express mongoose jsonwebtoken bcrypt cors helmet cookie-parser
+npm install --save-dev typescript ts-node-dev @types/express @types/node @types/jsonwebtoken @types/bcrypt @types/cors @types/cookie-parser
 ```
 
 ### 3. Create Docker Files
+
 - `client/Dockerfile` - Frontend container
 - `server/Dockerfile` - Backend container
 - `nginx/nginx.conf` - Load balancer config
@@ -138,6 +145,7 @@ npm install bcrypt class-validator class-transformer
 - `docker-compose.dev.yml` - Development setup
 
 ### 4. Initialize Git (if not already)
+
 ```bash
 git add .
 git commit -m "feat: initialize project structure
@@ -153,11 +161,13 @@ git commit -m "feat: initialize project structure
 ## 🔍 Verify Structure
 
 Run this command to see the complete structure:
+
 ```bash
 tree /F /A
 ```
 
 Or to see just folders:
+
 ```bash
 tree /A
 ```

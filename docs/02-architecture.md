@@ -6,7 +6,8 @@ Comprehensive overview of the MicroFinance SaaS platform architecture, design pr
 
 ## 📋 Architecture Overview
 
-The MicroFinance SaaS platform follows a **Scalable Modular Monolith** architecture built with NestJS, designed for:
+The MicroFinance SaaS platform follows a **Scalable Modular Monolith** architecture built with Node.js + Express.js, designed for:
+
 - **Horizontal scalability** through load-balanced instances
 - **Data isolation** for multi-tenant operations
 - **Production-ready deployment** with Docker containerization
@@ -36,17 +37,17 @@ Build a **user-friendly, scalable SaaS platform** for micro-finance management t
 
 ## 🛠️ Technology Stack
 
-| Layer | Technology | Description |
-|-------|-----------|-------------|
-| **Frontend** | React 18 + TypeScript + Vite + Zustand | Modern UI with lightweight state management |
-| **Backend** | NestJS | Modular monolithic REST API server |
-| **Database** | MongoDB (Single DB, Multiple Collections) | NoSQL with aggregation pipelines and lookups |
-| **Reverse Proxy** | Nginx | Load balancer + static file server |
-| **Containerization** | Docker + Docker Compose | Multi-stage builds for optimized production |
-| **Authentication** | JWT + bcrypt + HTTPS | Secure password handling with HttpOnly cookies |
-| **Version Control** | Git + GitHub | Source control with CI/CD integration |
+| Layer                | Technology                                | Description                                    |
+| -------------------- | ----------------------------------------- | ---------------------------------------------- |
+| **Frontend**         | React 18 + TypeScript + Vite + Zustand    | Modern UI with lightweight state management    |
+| **Backend**          | Node.js + Express.js                      | Modular monolithic REST API server             |
+| **Database**         | MongoDB (Single DB, Multiple Collections) | NoSQL with aggregation pipelines and lookups   |
+| **Reverse Proxy**    | Nginx                                     | Load balancer + static file server             |
+| **Containerization** | Docker + Docker Compose                   | Multi-stage builds for optimized production    |
+| **Authentication**   | JWT + bcrypt + HTTPS                      | Secure password handling with HttpOnly cookies |
+| **Version Control**  | Git + GitHub                              | Source control with CI/CD integration          |
 
-**Note:** This is a **MongoDB + NestJS + React + Node (TypeScript-based Full Stack)** architecture, not traditional MERN (which uses Express).
+**Note:** This is a **MongoDB + Express.js + React + Node (TypeScript-based Full Stack)** architecture — a modern MERN-style stack.
 
 ---
 
@@ -94,13 +95,13 @@ Build a **user-friendly, scalable SaaS platform** for micro-finance management t
 
 ### 🔹 Core Functionality
 
-| Module | Features |
-|--------|----------|
-| **User Management** | Registration, authentication, profile management, role-based access |
-| **Account Module** | Create savings accounts, deposit/withdraw, transaction history |
-| **Loan Module** | Loan eligibility checker, application workflow, repayment tracking |
-| **Admin Dashboard** | User management, loan approvals, payment updates, analytics |
-| **Tenant Management** | Organization onboarding, subscription plans, usage analytics |
+| Module                | Features                                                            |
+| --------------------- | ------------------------------------------------------------------- |
+| **User Management**   | Registration, authentication, profile management, role-based access |
+| **Account Module**    | Create savings accounts, deposit/withdraw, transaction history      |
+| **Loan Module**       | Loan eligibility checker, application workflow, repayment tracking  |
+| **Admin Dashboard**   | User management, loan approvals, payment updates, analytics         |
+| **Tenant Management** | Organization onboarding, subscription plans, usage analytics        |
 
 ---
 
@@ -128,6 +129,7 @@ upstream backend_servers {
 ```
 
 **Benefits:**
+
 - Automatic failover if an instance crashes
 - Even distribution of load
 - Zero-downtime deployments (rolling updates)
@@ -141,7 +143,7 @@ upstream backend_servers {
 ```typescript
 // Every query includes organization context
 const users = await this.userModel.find({
-  organizationId: currentUser.organizationId  // Automatic tenant filtering
+  organizationId: currentUser.organizationId, // Automatic tenant filtering
 });
 
 // Compound indexes ensure performance
@@ -283,6 +285,7 @@ Future:  User Service | Account Service | Loan Service
 ### Why Modular Monolith?
 
 **Advantages:**
+
 - ✅ Simpler deployment and operations
 - ✅ Easier debugging and testing
 - ✅ Lower infrastructure costs
@@ -290,18 +293,19 @@ Future:  User Service | Account Service | Loan Service
 - ✅ Can migrate to microservices later
 
 **When to migrate to microservices:**
+
 - Team size > 20 developers
 - Need independent scaling of specific modules
 - Different technology requirements per module
 - Organizational boundaries require separation
 
-### Why NestJS over Express?
+### Why Express.js?
 
-- Built-in TypeScript support
-- Dependency injection out of the box
-- Modular architecture by design
-- Extensive ecosystem (guards, interceptors, pipes)
-- Better for large-scale applications
+- Minimal and flexible web framework for Node.js
+- Full TypeScript support with `@types/express`
+- Large ecosystem with extensive middleware
+- Simple and unopinionated — structure code as needed
+- Easy to scale and maintain with modular routers
 
 ### Why MongoDB over PostgreSQL?
 
