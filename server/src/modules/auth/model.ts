@@ -40,6 +40,12 @@ const UserSchema = new Schema<IUser>(
       type: Boolean,
       default: true,
     },
+    oauth: {
+      googleId: {
+        type: String,
+        sparse: true, // Allow multiple null values; unique when set
+      },
+    },
   },
   {
     timestamps: true,

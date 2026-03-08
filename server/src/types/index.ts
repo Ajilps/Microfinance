@@ -12,6 +12,15 @@ export interface JwtPayload {
   exp?: number;
 }
 
+// ─── Passport / Express namespace augmentation ───────────────────────────────
+// Makes req.user conform to JwtPayload everywhere (resolves Express.User conflict)
+declare global {
+  namespace Express {
+    // eslint-disable-next-line @typescript-eslint/no-empty-interface
+    interface User extends JwtPayload {}
+  }
+}
+
 /** Extends Express Request to include the authenticated user */
 export interface AuthenticatedRequest extends Request {
   user?: JwtPayload;
@@ -57,6 +66,9 @@ export interface IUser extends Document {
   phone?: string;
   role: UserRole;
   isActive: boolean;
+  oauth?: {
+    googleId?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;

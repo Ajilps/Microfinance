@@ -25,6 +25,16 @@ const config = {
   // ─── CORS ─────────────────────────────────────────────────────────────────
   corsOrigin: (process.env.CORS_ORIGIN || "http://localhost:5173").split(","),
 
+  // ─── Google OAuth 2.0 ─────────────────────────────────────────────────────
+  googleClientId: process.env.GOOGLE_CLIENT_ID || "",
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+  googleCallbackUrl:
+    process.env.GOOGLE_CALLBACK_URL ||
+    "http://localhost:3000/api/v1/auth/google/callback",
+
+  // ─── Frontend ─────────────────────────────────────────────────────────────
+  frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
+
   // ─── Rate Limiting ────────────────────────────────────────────────────────
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10), // 15 min
   rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || "100", 10),
