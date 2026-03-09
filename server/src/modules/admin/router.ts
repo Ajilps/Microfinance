@@ -5,24 +5,20 @@ import {
   isSuperAdmin,
 } from "../../middleware/auth.middleware";
 import * as authController from "../auth/controller";
-import { loginValidation, registerValidation } from "../auth/validation";
+import { adminLoginValidation, registerValidation } from "../auth/validation";
 
 const router = Router();
 
 /**
  * Admin Auth Routes — mounted at /api/v1/admin/auth
  *
- * These routes reuse the existing auth controller and service.
- * The login endpoint is identical to /api/v1/auth/login but is provided
- * here as a dedicated admin entry point for clarity.
- *
- * Role enforcement on the returned JWT is handled by the client and by
- * the `isAdmin` / `isSuperAdmin` middleware on protected admin routes.
+ * Login does NOT require organizationId — super_admin and admin users
+ * are platform-level and are looked up by email only.
  */
 
 // POST /api/v1/admin/auth/login
-// Authenticate an admin or super_admin user and return a JWT.
-router.post("/login", loginValidation, authController.login);
+// Authenticate an admin or super_admin user (no organizationId needed).
+router.post("/login", adminLoginValidation, authController.adminLogin);
 
 // POST /api/v1/admin/auth/register
 // Register a new admin user (super_admin only).
