@@ -34,7 +34,7 @@ const signToken = (user: IUser): string => {
     id: (user._id as Types.ObjectId).toString(),
     email: user.email,
     role: user.role,
-    organizationId: user.organizationId.toString(),
+    organizationId: user.organizationId ? user.organizationId.toString() : "",
   };
 
   return jwt.sign(payload, config.jwtSecret, {
@@ -115,6 +115,37 @@ export const login = async (input: LoginInput): Promise<AuthResult> => {
   }
 
   const isMatch = await user.comparePassword(input.password);
+  if (!isMatch) {
+    throw new AppError("Invalid email or password.", 401);
+  }
+
+  const token = signToken(user);
+
+  const userObj = user.toObject() as any;
+  delete userObj.password;
+
+  return { user: userObj, token };
+};
+
+/**
+ * Authenticates an admin/super_admin user by email only (no organizationId required).
+ * Used by the /api/v1/admin/auth/login endpoint.
+ */
+export const adminLogin = async (
+  email: string,
+  password: string,
+): Promise<AuthResult> => {
+  const user = await User.findOne({
+    email,
+    isActive: true,
+    role: { $in: [UserRole.ADMIN, UserRole.SUPER_ADMIN] },
+  }).select("+password");
+
+  if (!user) {
+    throw new AppError("Invalid email or password.", 401);
+  }
+
+  const isMatch = await user.comparePassword(password);
   if (!isMatch) {
     throw new AppError("Invalid email or password.", 401);
   }

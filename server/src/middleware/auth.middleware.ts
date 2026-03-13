@@ -1,7 +1,7 @@
 import { Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import config from "../config/env.config";
-import { AuthenticatedRequest, JwtPayload } from "../types";
+import { AuthenticatedRequest, JwtPayload, UserRole } from "../types";
 import AppError from "../utils/AppError";
 
 /**
@@ -62,3 +62,44 @@ export const restrictTo =
     }
     next();
   };
+
+/**
+ * Middleware that allows access only to ADMIN or SUPER_ADMIN users.
+ * Must be composed after `protect`.
+ *
+ * @example
+ * router.get('/dashboard', protect, isAdmin, getDashboard);
+ */
+export const isAdmin = (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): void => {
+  if (
+    !req.user ||
+    (req.user.role !== UserRole.ADMIN && req.user.role !== UserRole.SUPER_ADMIN)
+  ) {
+    return next(
+      new AppError("Access denied. Admin or Super Admin role required.", 403),
+    );
+  }
+  next();
+};
+
+/**
+ * Middleware that allows access only to SUPER_ADMIN users.
+ * Must be composed after `protect`.
+ *
+ * @example
+ * router.delete('/organizations/:id', protect, isSuperAdmin, deactivateOrg);
+ */
+export const isSuperAdmin = (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): void => {
+  if (!req.user || req.user.role !== UserRole.SUPER_ADMIN) {
+    return next(new AppError("Access denied. Super Admin role required.", 403));
+  }
+  next();
+};

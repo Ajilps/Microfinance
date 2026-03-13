@@ -117,6 +117,32 @@ export const logout = asyncHandler(
   },
 );
 
+// ─── Admin Login Controller ───────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/admin/auth/login
+ * Authenticate an admin or super_admin user by email only (no organizationId required).
+ */
+export const adminLogin = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return ApiResponse.badRequest(res, "Validation failed", errors.array());
+    }
+
+    const { email, password } = req.body;
+
+    const result = await authService.adminLogin(email, password);
+
+    res.cookie("token", result.token, COOKIE_OPTIONS);
+
+    return ApiResponse.success(res, "Admin login successful", {
+      user: result.user,
+      token: result.token,
+    });
+  },
+);
+
 // ─── Google OAuth Controllers ─────────────────────────────────────────────────
 
 /**

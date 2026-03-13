@@ -132,3 +132,7 @@ server/
 | `npm run test:cov` | Run tests with coverage report           |
 | `npm run lint`     | Lint source files                        |
 | `npm run format`   | Format source files with Prettier        |
+
+for creating new super admin
+for new project
+npm run seed:admin 2>&1

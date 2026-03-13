@@ -39,6 +39,18 @@ export const loginValidation = [
     .withMessage("Organization / Company name is required"),
 ];
 
+/**
+ * Admin login — email + password only, no organizationId required.
+ */
+export const adminLoginValidation = [
+  body("email")
+    .isEmail()
+    .withMessage("Please provide a valid email address")
+    .normalizeEmail(),
+
+  body("password").notEmpty().withMessage("Password is required"),
+];
+
 export const changePasswordValidation = [
   body("currentPassword")
     .notEmpty()

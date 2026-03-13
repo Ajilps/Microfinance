@@ -1,0 +1,52 @@
+﻿On branch main
+Your branch and 'origin/main' have diverged,
+and have 3 and 6 different commits each, respectively.
+  (use "git pull" if you want to integrate the remote branch with yours)
+
+You have unmerged paths.
+  (fix conflicts and run "git commit")
+  (use "git merge --abort" to abort the merge)
+
+Changes to be committed:
+	modified:   .env.example
+	deleted:    client/README.md
+	deleted:    client/eslint.config.js
+	deleted:    client/index.html
+	deleted:    client/public/vite.svg
+	deleted:    client/src/App.css
+	deleted:    client/src/assets/react.svg
+	deleted:    client/tsconfig.app.json
+	deleted:    client/tsconfig.json
+	deleted:    client/tsconfig.node.json
+	deleted:    client/vite.config.ts
+	new file:   docs/09-api-documentation.md
+	modified:   server/README.md
+	modified:   server/package.json
+	modified:   server/src/config/env.config.ts
+	modified:   server/src/middleware/auth.middleware.ts
+	new file:   server/src/modules/admin/router.ts
+	modified:   server/src/modules/auth/controller.ts
+	modified:   server/src/modules/auth/service.ts
+	modified:   server/src/modules/auth/validation.ts
+	new file:   server/src/modules/organization/controller.ts
+	new file:   server/src/modules/organization/router.ts
+	new file:   server/src/modules/organization/service.ts
+	new file:   server/src/modules/organization/validation.ts
+	modified:   server/src/routes/index.ts
+	new file:   server/src/seeders/adminSeeder.ts
+	modified:   server/src/types/index.ts
+
+Unmerged paths:
+  (use "git add/rm <file>..." as appropriate to mark resolution)
+	deleted by them: client/.gitignore
+	deleted by them: client/package-lock.json
+	deleted by them: client/package.json
+	deleted by them: client/src/App.tsx
+	deleted by them: client/src/index.css
+	deleted by them: client/src/main.tsx
+	both added:      server/src/modules/organization/model.ts
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	status.txt
+

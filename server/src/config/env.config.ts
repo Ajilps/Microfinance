@@ -35,6 +35,16 @@ const config = {
   // ─── Frontend ─────────────────────────────────────────────────────────────
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
 
+  // ─── Seed / Default Admin Credentials ────────────────────────────────────
+  superAdminEmail:
+    process.env.SUPER_ADMIN_EMAIL || "superadmin@microfinance.com",
+  superAdminPassword: process.env.SUPER_ADMIN_PASSWORD || "SuperAdmin@123",
+  superAdminFullName: process.env.SUPER_ADMIN_FULL_NAME || "Super Admin",
+
+  adminEmail: process.env.ADMIN_EMAIL || "admin@microfinance.com",
+  adminPassword: process.env.ADMIN_PASSWORD || "Admin@123",
+  adminFullName: process.env.ADMIN_FULL_NAME || "Admin User",
+
   // ─── Rate Limiting ────────────────────────────────────────────────────────
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10), // 15 min
   rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || "100", 10),

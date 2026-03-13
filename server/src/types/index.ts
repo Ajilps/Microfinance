@@ -80,6 +80,7 @@ export interface IOrganization extends Document {
   subdomain: string;
   subscriptionPlan: string;
   isActive: boolean;
+  ownerId?: Types.ObjectId;
   settings: {
     loanInterestRate: number;
     minSavingsForLoan: number;
