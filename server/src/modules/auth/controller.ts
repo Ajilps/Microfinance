@@ -46,14 +46,14 @@ export const register = asyncHandler(
       return ApiResponse.badRequest(res, "Validation failed", errors.array());
     }
 
-    const { email, password, fullName, phone, organizationId, role } = req.body;
+    const { email, password, fullName, phone, organizationName, role } = req.body;
 
     const result = await authService.register({
       email,
       password,
       fullName,
       phone,
-      organizationId,
+      organizationName,
       role,
     });
 
@@ -77,9 +77,9 @@ export const login = asyncHandler(
       return ApiResponse.badRequest(res, "Validation failed", errors.array());
     }
 
-    const { email, password, organizationId } = req.body;
+    const { email, password, organizationName } = req.body;
 
-    const result = await authService.login({ email, password, organizationId });
+    const result = await authService.login({ email, password, organizationName });
 
     res.cookie("token", result.token, COOKIE_OPTIONS);
 

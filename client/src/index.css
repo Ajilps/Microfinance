@@ -258,6 +258,11 @@ a:hover {
 }
 
 /* Form Error */
+.has-error {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1) !important;
+}
+
 .form-error {
   color: var(--danger);
   font-size: 0.8rem;

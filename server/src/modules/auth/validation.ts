@@ -19,11 +19,11 @@ export const registerValidation = [
     .isLength({ min: 2, max: 100 })
     .withMessage("Full name must be between 2 and 100 characters"),
 
-  body("organizationId")
+  body("organizationName")
     .notEmpty()
-    .withMessage("Organization ID is required")
-    .isMongoId()
-    .withMessage("Invalid organization ID"),
+    .withMessage("Organization / Company name is required")
+    .isString()
+    .withMessage("Organization name must be a string"),
 ];
 
 export const loginValidation = [
@@ -34,11 +34,9 @@ export const loginValidation = [
 
   body("password").notEmpty().withMessage("Password is required"),
 
-  body("organizationId")
+  body("organizationName")
     .notEmpty()
-    .withMessage("Organization ID is required")
-    .isMongoId()
-    .withMessage("Invalid organization ID"),
+    .withMessage("Organization / Company name is required"),
 ];
 
 export const changePasswordValidation = [

@@ -1,30 +1,40 @@
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Shield, Mail, Lock, Building, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+import { useEffect } from 'react';
+
+const schema = yup.object().shape({
+    organizationName: yup.string().required('Organization name is required'),
+    email: yup.string().required('Email Address is required').email('Must be a valid email'),
+    password: yup.string().required('Password is required')
+});
+
+type LoginFormData = yup.InferType<typeof schema>;
 
 const Login = () => {
     const navigate = useNavigate();
     const { login, isLoading, error, clearError } = useAuthStore();
 
-    const [formData, setFormData] = useState({
-        email: '',
-        password: '',
-        organizationId: ''
+    const {
+        register,
+        handleSubmit,
+        formState: { errors, isValid },
+    } = useForm<LoginFormData>({
+        resolver: yupResolver(schema),
+        mode: 'onChange' // To validate as the user types
     });
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
-        if (error) clearError();
-    };
+    useEffect(() => {
+        // Clear global error when component mounts
+        clearError();
+    }, [clearError]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const onSubmit = async (data: LoginFormData) => {
         try {
-            await login(formData);
+            await login(data);
             navigate('/dashboard');
         } catch (err) {
             // Error is handled in the store
@@ -53,20 +63,18 @@ const Login = () => {
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit(onSubmit)}>
                     <div className="form-group">
-                        <label htmlFor="organizationId">Organization ID</label>
+                        <label htmlFor="organizationName">Organization Name</label>
                         <Building className="input-icon" size={20} />
                         <input
                             type="text"
-                            id="organizationId"
-                            name="organizationId"
-                            className="form-control"
-                            placeholder="Enter org ID (e.g., 65a...)"
-                            value={formData.organizationId}
-                            onChange={handleChange}
-                            required
+                            id="organizationName"
+                            className={`form-control ${errors.organizationName ? 'has-error' : ''}`}
+                            placeholder="Enter organization name"
+                            {...register('organizationName')}
                         />
+                        {errors.organizationName && <p className="error-text" style={{ color: 'red', fontSize: '0.85rem', marginTop: '4px' }}>{errors.organizationName.message}</p>}
                     </div>
 
                     <div className="form-group">
@@ -75,13 +83,11 @@ const Login = () => {
                         <input
                             type="email"
                             id="email"
-                            name="email"
-                            className="form-control"
+                            className={`form-control ${errors.email ? 'has-error' : ''}`}
                             placeholder="admin@example.com"
-                            value={formData.email}
-                            onChange={handleChange}
-                            required
+                            {...register('email')}
                         />
+                        {errors.email && <p className="error-text" style={{ color: 'red', fontSize: '0.85rem', marginTop: '4px' }}>{errors.email.message}</p>}
                     </div>
 
                     <div className="form-group">
@@ -90,19 +96,17 @@ const Login = () => {
                         <input
                             type="password"
                             id="password"
-                            name="password"
-                            className="form-control"
+                            className={`form-control ${errors.password ? 'has-error' : ''}`}
                             placeholder="••••••••"
-                            value={formData.password}
-                            onChange={handleChange}
-                            required
+                            {...register('password')}
                         />
+                        {errors.password && <p className="error-text" style={{ color: 'red', fontSize: '0.85rem', marginTop: '4px' }}>{errors.password.message}</p>}
                     </div>
 
                     <button
                         type="submit"
                         className="btn btn-primary"
-                        disabled={isLoading || !formData.email || !formData.password || !formData.organizationId}
+                        disabled={isLoading || !isValid}
                     >
                         {isLoading ? <Loader2 className="animate-spin" size={20} /> : 'Sign In'}
                         {!isLoading && <ArrowRight size={20} />}

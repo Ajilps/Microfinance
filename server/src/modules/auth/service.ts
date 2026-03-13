@@ -4,20 +4,21 @@ import config from "../../config/env.config";
 import { IUser, JwtPayload, UserRole } from "../../types";
 import AppError from "../../utils/AppError";
 import User from "./model";
+import Organization from "../organization/model";
 
 interface RegisterInput {
   email: string;
   password: string;
   fullName: string;
   phone?: string;
-  organizationId: string;
+  organizationName: string;
   role?: UserRole;
 }
 
 interface LoginInput {
   email: string;
   password: string;
-  organizationId: string;
+  organizationName: string;
 }
 
 interface AuthResult {
@@ -45,9 +46,26 @@ const signToken = (user: IUser): string => {
  * Registers a new user within an organization.
  */
 export const register = async (input: RegisterInput): Promise<AuthResult> => {
+  const cleanedName = input.organizationName.trim();
+  const subdomain = cleanedName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  let organization = await Organization.findOne({ subdomain });
+  
+  if (!organization) {
+    if (input.role !== UserRole.SUPER_ADMIN && input.role !== UserRole.ADMIN) {
+        throw new AppError("No existing organization found. Only an admin can create a new organization.", 403);
+    }
+  
+    // Create new organization
+    organization = await Organization.create({
+      name: cleanedName,
+      subdomain
+    });
+  }
+
   const existing = await User.findOne({
     email: input.email,
-    organizationId: input.organizationId,
+    organizationId: organization._id,
   });
 
   if (existing) {
@@ -57,7 +75,14 @@ export const register = async (input: RegisterInput): Promise<AuthResult> => {
     );
   }
 
-  const user = await User.create(input);
+  const user = await User.create({
+    email: input.email,
+    password: input.password,
+    fullName: input.fullName,
+    phone: input.phone,
+    role: input.role,
+    organizationId: organization._id
+  });
   const token = signToken(user);
 
   // Return user without password
@@ -71,10 +96,17 @@ export const register = async (input: RegisterInput): Promise<AuthResult> => {
  * Authenticates a user and returns a JWT token.
  */
 export const login = async (input: LoginInput): Promise<AuthResult> => {
-  // Select password explicitly (it's excluded by default)
+  const cleanedName = input.organizationName.trim();
+  const subdomain = cleanedName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const organization = await Organization.findOne({ subdomain });
+  if (!organization) {
+     throw new AppError("Invalid organization or email.", 401);
+  }
+
   const user = await User.findOne({
     email: input.email,
-    organizationId: input.organizationId,
+    organizationId: organization._id,
     isActive: true,
   }).select("+password");
 
