@@ -394,16 +394,3 @@ SOFTWARE.
 ```
 
 ---
-
-## Contact & Support
-
-If you encounter a bug or have a feature request, please [open an issue](https://github.com/your-username/microfinance/issues) on GitHub.
-
-For direct support or enquiries, reach out via:
-
-| Channel           | Details                                                                                              |
-| ----------------- | ---------------------------------------------------------------------------------------------------- |
-| **GitHub Issues** | [github.com/your-username/microfinance/issues](https://github.com/your-username/microfinance/issues) |
-| **Email**         | support@example.com                                                                                  |
-
-> Please include the Node.js version (`node -v`), MongoDB version, and a description of the steps to reproduce any bug you report.
