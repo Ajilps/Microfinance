@@ -11,6 +11,7 @@ const ManageLoans = () => {
   const [users, setUsers] = useState([]);
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [applyingInterest, setApplyingInterest] = useState(false);
 
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [userLedger, setUserLedger] = useState(null);
@@ -145,6 +146,19 @@ const ManageLoans = () => {
     }
   };
 
+  const handleApplyInterest = async () => {
+    setApplyingInterest(true);
+    try {
+      await api.post('/users/interest');
+      toast.success('Interest calculation completed successfully');
+      fetchLoansOverview();
+    } catch (error) {
+      toast.error('Interest calculation failed: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setApplyingInterest(false);
+    }
+  };
+
   const goBack = () => {
     setSelectedUserId(null);
     setUserLedger(null);
@@ -217,9 +231,25 @@ const ManageLoans = () => {
     <div>
       <div className="flex-between mb-4">
         <h2>Manage Loans</h2>
-        {selectedUserId && (
+        {selectedUserId ? (
           <button className="btn btn-secondary" onClick={goBack}>
             ← Back to Overview
+          </button>
+        ) : (
+          <button
+            className="btn btn-primary"
+            onClick={handleApplyInterest}
+            disabled={applyingInterest}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            {applyingInterest ? (
+              <>
+                <span className="spinner" style={{ width: '1rem', height: '1rem', borderWidth: '2px', margin: 0 }}></span>
+                Applying Interest…
+              </>
+            ) : (
+              '⚡ Apply Interest Now'
+            )}
           </button>
         )}
       </div>
