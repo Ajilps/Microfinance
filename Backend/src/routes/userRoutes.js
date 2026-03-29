@@ -12,11 +12,19 @@ import { getMySavingsSummary } from "../controllers/savingsController.js";
 import { getMyAttendanceSummary } from "../controllers/attendanceController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
+import { applyLoanInterest } from "../utils/interestCron.js"
 const router = express.Router();
 
 // Public routes
 router.post("/register", registerUser);
 router.post("/login", loginUser);
+
+//=========================
+router.get("/interest", (req, res, next) => {
+  console.log("get request to /interest");
+  next();
+}, applyLoanInterest)
+//============================
 
 // Protected routes
 router.get("/", protect, getUsers);

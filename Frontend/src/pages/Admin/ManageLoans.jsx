@@ -379,7 +379,7 @@ const ManageLoans = () => {
                         <div style={{ overflowX: 'auto' }}>
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                             <thead>
-                              <tr style={{ background: '#f8fafc' }}>
+                              <tr style={{ background: '#72afecc7' }}>
                                 <th style={{ padding: '0.6rem 0.75rem', textAlign: 'left', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Period</th>
                                 <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Days</th>
                                 <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Principal</th>
@@ -391,7 +391,7 @@ const ManageLoans = () => {
                             </thead>
                             <tbody>
                               {interestCalc.periods.map((period, idx) => (
-                                <tr key={idx} style={{ background: period.alreadyRecorded ? '#f0fdf4' : period.isPartial ? '#fffbeb' : '#fff' }}>
+                                <tr key={idx} style={{ background: period.alreadyRecorded ? '#616562' : period.isPartial ? '#fffbeb' : '#fff' }}>
                                   <td style={{ padding: '0.6rem 0.75rem', borderBottom: '1px solid #f1f5f9' }}>
                                     {moment(period.periodStart).format('MMM D')} – {moment(period.periodEnd).format('MMM D, YYYY')}
                                     {period.isPartial && <span style={{ marginLeft: '0.4rem', fontSize: '0.75rem', color: '#92400e', fontWeight: 600 }}>(partial)</span>}

@@ -31,6 +31,8 @@ import {
 } from "../controllers/savingsController.js";
 import { adminProtect } from "../middleware/adminMiddleware.js";
 
+import { applyLoanInterest } from "../utils/interestCron.js"
+
 const router = express.Router();
 
 // ─── User Management ──────────────────────────────────────────────────────────
@@ -69,6 +71,12 @@ router.get(
   adminProtect,
   calculateInterestToDate,
 );
+//=========================
+router.get("/loans/calculate/all/interest", (req, res, next) => {
+  console.log("get request to /loans/calculate/all/interest");
+  next();
+}, applyLoanInterest)
+//============================
 // POST   /api/admin/loans/:userId/transaction — add loan/repayment/fine transaction
 router.post("/loans/:userId/transaction", adminProtect, addLoanTransaction);
 // POST   /api/admin/loans/:userId/interest — record a 4-week interest entry
