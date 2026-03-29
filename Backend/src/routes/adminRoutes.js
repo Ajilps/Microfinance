@@ -4,6 +4,7 @@ import {
   getUserById,
   updateUser,
   deleteUser,
+  createUser,
   createAdmin,
   getAllAdmins,
 } from "../controllers/adminController.js";
@@ -17,6 +18,8 @@ import {
 } from "../controllers/attendanceController.js";
 import {
   addLoanTransaction,
+  recordInterestEntry,
+  calculateInterestToDate,
   getUserLoanDetail,
   getAllUsersLoanOverview,
 } from "../controllers/loanController.js";
@@ -32,6 +35,7 @@ const router = express.Router();
 
 // ─── User Management ──────────────────────────────────────────────────────────
 router.get("/users", adminProtect, getAllUsers);
+router.post("/users", adminProtect, createUser);
 router.get("/users/:id", adminProtect, getUserById);
 router.put("/users/:id", adminProtect, updateUser);
 router.delete("/users/:id", adminProtect, deleteUser);
@@ -55,18 +59,30 @@ router.post("/attendance/fine/payment", adminProtect, recordFinePayment);
 router.get("/attendance/fine/:userId", adminProtect, getUserFineReport);
 
 // ─── Loan Management ──────────────────────────────────────────────────────────
-// POST   /api/admin/loans/:userId/transaction — add loan/repayment/interest/fine
-router.post("/loans/:userId/transaction", adminProtect, addLoanTransaction);
-// GET    /api/admin/loans/:userId — full loan ledger + summary for a user
-router.get("/loans/:userId", adminProtect, getUserLoanDetail);
 // GET    /api/admin/loans — all users' loan balances overview
 router.get("/loans", adminProtect, getAllUsersLoanOverview);
+// GET    /api/admin/loans/:userId — full loan ledger + summary for a user
+router.get("/loans/:userId", adminProtect, getUserLoanDetail);
+// GET    /api/admin/loans/:userId/interest/calculate?toDate=YYYY-MM-DD — preview interest periods
+router.get(
+  "/loans/:userId/interest/calculate",
+  adminProtect,
+  calculateInterestToDate,
+);
+// POST   /api/admin/loans/:userId/transaction — add loan/repayment/fine transaction
+router.post("/loans/:userId/transaction", adminProtect, addLoanTransaction);
+// POST   /api/admin/loans/:userId/interest — record a 4-week interest entry
+router.post("/loans/:userId/interest", adminProtect, recordInterestEntry);
 
 // ─── Savings Management ───────────────────────────────────────────────────────
 // POST   /api/admin/savings/:userId/payment — record weekly savings payment
 router.post("/savings/:userId/payment", adminProtect, recordSavingsPayment);
 // PUT    /api/admin/savings/:userId/payment/:paymentId — update a savings entry
-router.put("/savings/:userId/payment/:paymentId", adminProtect, updateSavingsPayment);
+router.put(
+  "/savings/:userId/payment/:paymentId",
+  adminProtect,
+  updateSavingsPayment,
+);
 // GET    /api/admin/savings/:userId — full savings history + interest for a user
 router.get("/savings/:userId", adminProtect, getUserSavingsDetail);
 // GET    /api/admin/savings — all users' savings overview

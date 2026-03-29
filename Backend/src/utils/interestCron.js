@@ -3,12 +3,14 @@ import User from "../models/userModel.js";
 import LoanTransaction from "../models/loanModel.js";
 
 /**
- * Auto-applies 1% interest (balance × 0.01) for every user
- * who has an outstanding loan balance, every 28 days.
+ * Auto-applies 1% interest on the PRINCIPAL BALANCE every 28 days.
  *
- * The cron runs daily at midnight and checks whether 28 days
- * have passed since the last interest transaction for each user.
- * This avoids duplicates and works even if the server restarts.
+ * Key rules:
+ *   - Interest is calculated on the PRINCIPAL balance only (never on accrued interest)
+ *   - Interest is recorded as a SEPARATE line item with period metadata
+ *   - Interest is NEVER added to the principal balance (no capitalization)
+ *   - The cron runs daily at midnight and checks whether 28 days have passed
+ *     since the last interest transaction for each user.
  */
 const applyLoanInterest = async () => {
   console.log("[InterestCron] Running loan interest check...");
@@ -31,22 +33,25 @@ const applyLoanInterest = async () => {
         continue;
       }
 
-      // Compute current balance
-      let balance = 0;
+      // Compute PRINCIPAL balance only (interest never added to principal)
+      let principalBalance = 0;
       for (const tx of transactions) {
-        if (
-          tx.type === "loan" ||
-          tx.type === "interest" ||
-          tx.type === "fine"
+        if (tx.type === "loan") {
+          principalBalance += tx.amount;
+        } else if (
+          tx.type === "repayment" &&
+          tx.paymentTarget === "principal"
         ) {
-          balance += tx.amount;
-        } else if (tx.type === "repayment") {
-          balance -= tx.amount;
+          principalBalance -= tx.amount;
+        }
+        // Legacy repayments without paymentTarget: treat as principal repayment
+        else if (tx.type === "repayment" && !tx.paymentTarget) {
+          principalBalance -= tx.amount;
         }
       }
 
-      // Skip users with zero or negative balance (loan fully repaid)
-      if (balance <= 0) {
+      // Skip users with zero or negative principal balance (loan fully repaid)
+      if (principalBalance <= 0) {
         skipped++;
         continue;
       }
@@ -57,9 +62,10 @@ const applyLoanInterest = async () => {
         .at(-1);
 
       // If no prior interest, use the date of the first loan disbursement
+      const firstLoan = transactions.find((tx) => tx.type === "loan");
       const referenceDate = lastInterestTx
         ? new Date(lastInterestTx.date)
-        : new Date(transactions.find((tx) => tx.type === "loan")?.date);
+        : new Date(firstLoan?.date);
 
       if (!referenceDate) {
         skipped++;
@@ -77,20 +83,34 @@ const applyLoanInterest = async () => {
         continue;
       }
 
-      // Calculate interest: 1% of current balance
-      const interestAmount = parseFloat((balance * 0.01).toFixed(2));
+      // Calculate period start and end
+      const periodStart = new Date(referenceDate);
+      const periodEnd = new Date(referenceDate);
+      periodEnd.setDate(periodEnd.getDate() + 28);
+
+      // Calculate interest: 1% of PRINCIPAL balance (never on interest balance)
+      const interestRate = 0.01;
+      const interestAmount = parseFloat(
+        (principalBalance * interestRate).toFixed(2),
+      );
 
       await LoanTransaction.create({
         user: user._id,
         type: "interest",
         amount: interestAmount,
         date: now,
-        note: `Auto interest: 1% of balance ₹${balance.toFixed(2)}`,
+        note: `Auto interest: 1% of principal ₹${principalBalance.toFixed(2)} for period ${periodStart.toLocaleDateString("en-IN")} – ${periodEnd.toLocaleDateString("en-IN")}`,
         recordedBy: null, // System-generated
+        interestPeriod: {
+          periodStart,
+          periodEnd,
+          principalBalance,
+          interestRate,
+        },
       });
 
       console.log(
-        `[InterestCron] Applied ₹${interestAmount} interest for user ${user.name} (balance: ₹${balance.toFixed(2)})`,
+        `[InterestCron] Applied ₹${interestAmount} interest for user ${user.name} (principal: ₹${principalBalance.toFixed(2)}, period: ${periodStart.toLocaleDateString("en-IN")} – ${periodEnd.toLocaleDateString("en-IN")})`,
       );
       applied++;
     }
@@ -113,7 +133,9 @@ const startInterestCron = () => {
   cron.schedule("0 0 * * *", applyLoanInterest, {
     timezone: "Asia/Kolkata",
   });
-  console.log("[InterestCron] 28-day loan interest scheduler started.");
+  console.log(
+    "[InterestCron] 28-day loan interest scheduler started (principal-only calculation).",
+  );
 };
 
 export { startInterestCron, applyLoanInterest };

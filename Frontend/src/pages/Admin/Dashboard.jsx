@@ -37,9 +37,9 @@ const AdminDashboard = () => {
 
   if (loading) return <div className="spinner"></div>;
 
-  const totalLoans = loans.reduce((acc, l) => acc + (l.totalLoan || 0), 0);
-  const totalRepayments = loans.reduce((acc, l) => acc + (l.totalRepayment || 0), 0);
-  const totalCurrentBalance = loans.reduce((acc, l) => acc + (l.currentBalance || 0), 0);
+  const totalLoans = loans.reduce((acc, l) => acc + (l.totalDisbursed || 0), 0);
+  const totalRepayments = loans.reduce((acc, l) => acc + (l.totalPrincipalRepaid || 0), 0);
+  const totalCurrentBalance = loans.reduce((acc, l) => acc + (l.totalOutstanding || 0), 0);
   const totalSavingsAmount = savings.reduce((acc, s) => acc + (s.totalSavings || 0), 0);
 
   return (
@@ -73,10 +73,10 @@ const AdminDashboard = () => {
         <div className="stat-card">
           <div className="stat-title">Total Loans Disbursed</div>
           <div className="stat-value">₹{totalLoans.toFixed(2)}</div>
-          <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.5rem' }}>Total repaid: ₹{totalRepayments.toFixed(2)}</p>
+          <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.5rem' }}>Principal repaid: ₹{totalRepayments.toFixed(2)}</p>
         </div>
         <div className="stat-card">
-          <div className="stat-title">Outstanding Loan Balance</div>
+          <div className="stat-title">Total Outstanding (P + I)</div>
           <div className="stat-value" style={{ color: totalCurrentBalance > 0 ? 'var(--danger)' : '#10b981' }}>
             ₹{totalCurrentBalance.toFixed(2)}
           </div>

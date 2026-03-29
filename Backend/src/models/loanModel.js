@@ -4,12 +4,15 @@ import mongoose from "mongoose";
  * LoanTransaction — audit log of all loan-related events for a user.
  *
  * Types:
- *   loan       → new loan disbursed to user (increases balance)
- *   repayment  → user paid back money (decreases balance)
- *   interest   → auto-applied 1% of balance every 28 days (increases balance)
- *   fine       → optional penalty added by admin (increases balance)
+ *   loan        → new loan disbursed to user (increases principal balance)
+ *   repayment   → user paid back money (decreases principal OR interest balance)
+ *   interest    → 1% of PRINCIPAL recorded every 28 days (never added to principal)
+ *   fine        → optional penalty added by admin (increases interest balance)
  *
- * Current balance = sum(loan) + sum(interest) + sum(fine) - sum(repayment)
+ * Key design principle:
+ *   - Principal balance = sum(loan) - sum(repayment where paymentTarget='principal')
+ *   - Interest balance  = sum(interest) + sum(fine) - sum(repayment where paymentTarget='interest')
+ *   - Interest is ALWAYS calculated on the original principal, never capitalized.
  */
 const loanTransactionSchema = new mongoose.Schema(
   {
@@ -28,10 +31,23 @@ const loanTransactionSchema = new mongoose.Schema(
       required: [true, "Amount is required"],
       min: [0.01, "Amount must be greater than 0"],
     },
+    // For repayment transactions: specifies whether payment reduces principal or interest
+    paymentTarget: {
+      type: String,
+      enum: ["principal", "interest", null],
+      default: null,
+    },
     // The date the transaction is recorded as happening (admin-controlled)
     date: {
       type: Date,
       required: [true, "Transaction date is required"],
+    },
+    // For interest transactions: metadata about the period this interest covers
+    interestPeriod: {
+      periodStart: { type: Date, default: null },
+      periodEnd: { type: Date, default: null },
+      principalBalance: { type: Number, default: null },
+      interestRate: { type: Number, default: 0.01 }, // 1% default
     },
     note: {
       type: String,
@@ -42,7 +58,7 @@ const loanTransactionSchema = new mongoose.Schema(
       ref: "User", // Admin who entered this record
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Index for fast per-user queries

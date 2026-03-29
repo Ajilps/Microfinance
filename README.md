@@ -1,4 +1,4 @@
-# Microfinance Management System
+w# Microfinance Management System
 
 A full-stack web application for managing microfinance operations, including user savings, loans, attendance tracking, and automated interest calculations. Built with a **React** frontend and a **Node.js/Express** REST API backend backed by **MongoDB**.
 

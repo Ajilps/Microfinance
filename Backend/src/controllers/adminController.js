@@ -60,6 +60,40 @@ const deleteUser = async (req, res) => {
   res.json({ message: "User deleted successfully" });
 };
 
+// @desc    Create a new user (admin or regular) from the admin panel
+// @route   POST /api/admin/users
+// @access  Private/Admin
+const createUser = async (req, res) => {
+  const { name, email, password, role = "user" } = req.body;
+
+  if (!name || !email || !password) {
+    return res
+      .status(400)
+      .json({ message: "Please provide name, email, and password" });
+  }
+
+  if (![""].concat(["user", "admin"]).slice(1).includes(role)) {
+    return res.status(400).json({ message: "Invalid role" });
+  }
+
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    return res
+      .status(409)
+      .json({ message: "A user with this email already exists" });
+  }
+
+  const newUser = await User.create({ name, email, password, role });
+
+  res.status(201).json({
+    _id: newUser._id,
+    name: newUser.name,
+    email: newUser.email,
+    role: newUser.role,
+    createdAt: newUser.createdAt,
+  });
+};
+
 // @desc    Create a new admin account
 // @route   POST /api/admin/create
 // @access  Private/Admin
@@ -104,6 +138,7 @@ export {
   getUserById,
   updateUser,
   deleteUser,
+  createUser,
   createAdmin,
   getAllAdmins,
 };
