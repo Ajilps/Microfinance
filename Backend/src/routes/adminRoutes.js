@@ -32,7 +32,7 @@ import {
 } from "../controllers/savingsController.js";
 import { adminProtect } from "../middleware/adminMiddleware.js";
 
-import { applyLoanInterest } from "../utils/interestCron.js"
+import { applyLoanInterest, calculateAndApplyLoanInterest } from "../utils/interestCron.js";
 
 const router = express.Router();
 
@@ -44,6 +44,18 @@ router.put("/users/:id", adminProtect, updateUser);
 router.delete("/users/:id", adminProtect, deleteUser);
 router.post("/create", adminProtect, createAdmin);
 router.get("/all", adminProtect, getAllAdmins);
+
+// ─── Interest Calculation ───────────────────────────────────────────────
+// POST /api/admin/users/interest — manual admin trigger for interest calculation
+router.post("/users/interest", adminProtect, async (req, res) => {
+  console.log("[Route] POST /api/admin/users/interest — manual interest trigger");
+  try {
+    const result = await calculateAndApplyLoanInterest();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: "Interest calculation failed: " + err.message });
+  }
+});
 
 // ─── Attendance ───────────────────────────────────────────────────────────────
 // Mark weekly attendance for all users (bulk upsert)

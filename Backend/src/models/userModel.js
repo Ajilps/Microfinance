@@ -26,6 +26,15 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user",
     },
+    unpaidInterest: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    lastInterestCalculationAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );

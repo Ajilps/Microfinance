@@ -251,6 +251,142 @@ const applyLoanInterest = async () => {
 };
 
 /**
+ * Manual-admin trigger for calculating and applying loan interest.
+ * 
+ * This function is idempotent:
+ * - Uses lastInterestCalculationAt on each user to track when interest was last calculated
+ * - Only calculates interest for the period since the last calculation
+ * - Updates unpaidInterest on the user (accumulates, does not reset)
+ * - Updates lastInterestCalculationAt to now after successful calculation
+ * 
+ * Returns a summary of loans processed.
+ */
+const calculateAndApplyLoanInterest = async () => {
+  console.log("[InterestCron] Manual interest calculation triggered...");
+
+  const results = {
+    totalLoansProcessed: 0,
+    totalInterestApplied: 0,
+    loansUpdated: [],
+    errors: [],
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    const users = await User.find({ role: "user" }).select("_id name unpaidInterest lastInterestCalculationAt");
+    const now = new Date();
+
+    for (const user of users) {
+      try {
+        const transactions = await LoanTransaction.find({ user: user._id }).sort({ date: 1 });
+
+        if (transactions.length === 0) {
+          continue;
+        }
+
+        const { principalBalance } = computeBalances(transactions);
+
+        if (principalBalance <= 0) {
+          if (transactions.some(tx => tx.type === "loan")) {
+            results.totalLoansProcessed++;
+          }
+          continue;
+        }
+
+        const hasLoan = transactions.some(tx => tx.type === "loan");
+        if (!hasLoan) {
+          continue;
+        }
+
+        const lastCalcAt = user.lastInterestCalculationAt 
+          ? new Date(user.lastInterestCalculationAt) 
+          : null;
+        
+        const interestTxs = transactions.filter((tx) => tx.type === "interest");
+        let nextPeriodStart;
+
+        if (lastCalcAt) {
+          nextPeriodStart = lastCalcAt;
+        } else if (interestTxs.length > 0) {
+          const lastInterestTx = interestTxs.at(-1);
+          if (lastInterestTx?.interestPeriod?.periodEnd) {
+            nextPeriodStart = new Date(lastInterestTx.interestPeriod.periodEnd);
+          } else {
+            const firstLoan = transactions.find((tx) => tx.type === "loan");
+            nextPeriodStart = firstLoan ? new Date(firstLoan.date) : null;
+          }
+        } else {
+          const firstLoan = transactions.find((tx) => tx.type === "loan");
+          nextPeriodStart = firstLoan ? new Date(firstLoan.date) : null;
+        }
+
+        if (!nextPeriodStart) {
+          continue;
+        }
+
+        let totalInterestForPeriod = 0;
+        let periodsAppliedThisRun = 0;
+
+        while (true) {
+          const periodEnd = new Date(nextPeriodStart);
+          periodEnd.setDate(periodEnd.getDate() + PERIOD_DAYS);
+
+          if (periodEnd > now) break;
+
+          const principalAtPeriodStart = getPrincipalAtDate(transactions, nextPeriodStart);
+
+          if (principalAtPeriodStart <= 0) {
+            nextPeriodStart = new Date(periodEnd);
+            continue;
+          }
+
+          const interestAmount = parseFloat(
+            (principalAtPeriodStart * INTEREST_RATE).toFixed(2),
+          );
+
+          if (interestAmount > 0) {
+            totalInterestForPeriod += interestAmount;
+            periodsAppliedThisRun++;
+          }
+
+          nextPeriodStart = new Date(periodEnd);
+        }
+
+        if (totalInterestForPeriod > 0) {
+          user.unpaidInterest = (user.unpaidInterest || 0) + totalInterestForPeriod;
+          user.lastInterestCalculationAt = now;
+          await user.save();
+
+          results.totalInterestApplied += totalInterestForPeriod;
+          results.loansUpdated.push({
+            loanId: user._id.toString(),
+            userId: user._id.toString(),
+            periodInterest: totalInterestForPeriod,
+            periodsApplied: periodsAppliedThisRun,
+          });
+        }
+
+        results.totalLoansProcessed++;
+      } catch (userError) {
+        results.errors.push({
+          userId: user._id.toString(),
+          message: userError.message,
+        });
+      }
+    }
+
+    console.log(
+      `[InterestCron] Manual calculation complete — processed: ${results.totalLoansProcessed}, interest applied: ${results.totalInterestApplied.toFixed(2)}`,
+    );
+  } catch (err) {
+    console.error("[InterestCron] Manual calculation error:", err.message);
+    results.errors.push({ message: err.message });
+  }
+
+  return results;
+};
+
+/**
  * Schedule: runs every day at midnight (00:00).
  * The handler itself checks if 28 days have elapsed per user,
  * so running daily is just the trigger — no duplicate interest is applied.
@@ -265,4 +401,4 @@ const startInterestCron = () => {
   );
 };
 
-export { startInterestCron, applyLoanInterest };
+export { startInterestCron, applyLoanInterest, calculateAndApplyLoanInterest };
