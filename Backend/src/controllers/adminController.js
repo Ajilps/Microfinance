@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
+import LoanTransaction from "../models/loanModel.js";
+import SavingsPayment from "../models/savingsModel.js";
 
 // Helper
 const generateToken = (id) => {
@@ -53,10 +55,16 @@ const updateUser = async (req, res) => {
 // @route   DELETE /api/admin/users/:id
 // @access  Private/Admin
 const deleteUser = async (req, res) => {
-  const user = await User.findByIdAndDelete(req.params.id);
+  const userId = req.params.id;
+
+  const user = await User.findByIdAndDelete(userId);
   if (!user) {
     return res.status(404).json({ message: "User not found" });
   }
+
+  await LoanTransaction.deleteMany({ user: userId });
+  await SavingsPayment.deleteMany({ user: userId });
+
   res.json({ message: "User deleted successfully" });
 };
 
