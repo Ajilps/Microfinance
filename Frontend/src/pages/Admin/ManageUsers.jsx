@@ -11,6 +11,7 @@ const ManageUsers = () => {
   const [loading, setLoading] = useState(true);
   const [editUser, setEditUser] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', email: '', role: 'user', password: '' });
+  const [editForm, setEditForm] = useState({ name: '', email: '', role: 'user', password: '' });
   const [editLoading, setEditLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   
@@ -46,6 +47,7 @@ const ManageUsers = () => {
 
   const openEdit = (user) => {
     setEditUser(user);
+    setEditForm({ name: user.name, email: user.email, role: user.role, password: '' });
     setEditForm({ name: user.name, email: user.email, role: user.role, password: '' });
   };
 
@@ -176,6 +178,16 @@ const ManageUsers = () => {
                 <option value="user">User</option>
                 <option value="admin">Admin</option>
               </select>
+            </div>
+               <div className="input-group">
+              <label className="input-label">New Password (leave blank to keep current)</label>
+              <input
+                type="password"
+                className="input-field"
+                placeholder="Enter new password to change"
+                value={editForm.password}
+                onChange={e => setEditForm(prev => ({ ...prev, password: e.target.value }))}
+              />
             </div>
                <div className="input-group">
               <label className="input-label">New Password (leave blank to keep current)</label>
