@@ -1,8 +1,10 @@
 import axios from "axios";
 
 // Ensure the base URL matches the backend API endpoint
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+
+const API_BASE_URL = import.meta.env.VITE_DEV
+  ? "http://localhost:4000/api"
+  : import.meta.env.VITE_API_URL;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
