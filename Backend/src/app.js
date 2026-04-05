@@ -29,7 +29,6 @@ app.use("/api/admin", adminRoutes);
 
 // ✅ FINAL FIX (no more path issues)
 const distPath = path.join(process.cwd(), "dist");
-
 // Serve frontend
 app.use(express.static(distPath));
 
