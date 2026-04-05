@@ -11,10 +11,9 @@ const ManageUsers = () => {
   const [loading, setLoading] = useState(true);
   const [editUser, setEditUser] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', email: '', role: 'user', password: '' });
-  const [editForm, setEditForm] = useState({ name: '', email: '', role: 'user', password: '' });
   const [editLoading, setEditLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  
+
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -179,7 +178,7 @@ const ManageUsers = () => {
                 <option value="admin">Admin</option>
               </select>
             </div>
-               <div className="input-group">
+            <div className="input-group">
               <label className="input-label">New Password (leave blank to keep current)</label>
               <input
                 type="password"
@@ -189,7 +188,7 @@ const ManageUsers = () => {
                 onChange={e => setEditForm(prev => ({ ...prev, password: e.target.value }))}
               />
             </div>
-               <div className="input-group">
+            <div className="input-group">
               <label className="input-label">New Password (leave blank to keep current)</label>
               <input
                 type="password"
