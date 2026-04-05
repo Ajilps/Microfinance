@@ -230,12 +230,52 @@ const addLoanTransaction = async (req, res) => {
 
   const transaction = await LoanTransaction.create(transactionData);
 
-  res.status(201).json(transaction);
+res.status(201).json(transaction);
 };
 
-// ─── ADMIN: Record a 4-week interest entry for a user ─────────────────────────
-// POST /api/admin/loans/:userId/interest
-// Body: { periodStart, periodEnd, principalBalance, interestRate, interestAmount, date, note }
+// ─── ADMIN: Apply unrecorded interest to loan balance ──────────────────────
+// POST /api/admin/loans/:userId/interest/apply-unrecorded
+// Body: { amount }
+const applyUnrecordedInterest = async (req, res) => {
+  const { userId } = req.params;
+  const { amount } = req.body;
+
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ message: "Valid positive amount is required" });
+  }
+
+  const user = await User.findById(userId);
+  if (!user || user.role !== "user") {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  const transaction = await LoanTransaction.create({
+    user: userId,
+    type: "interest",
+    amount: parseFloat(amount),
+    date: new Date(),
+    note: `Applied unrecorded interest: ₹${parseFloat(amount).toFixed(2)}`,
+    recordedBy: req.user._id,
+    interestPeriod: {
+      periodStart: null,
+      periodEnd: null,
+      principalBalance: null,
+      interestRate: 0.01,
+    },
+  });
+
+  const transactions = await LoanTransaction.find({ user: userId }).sort({ date: 1 });
+  const summary = computeLoanSummary(transactions);
+
+  res.status(201).json({
+    transaction,
+    updatedInterestBalance: summary.interestBalance,
+    updatedInterestAccrued: summary.totalInterestAccrued,
+    updatedInterestRepaid: summary.totalInterestRepaid,
+    updatedTotalOutstanding: summary.totalOutstanding,
+  });
+};
+
 const recordInterestEntry = async (req, res) => {
   const { userId } = req.params;
   const {
@@ -432,6 +472,7 @@ const getMyLoanSummary = async (req, res) => {
 
 export {
   addLoanTransaction,
+  applyUnrecordedInterest,
   recordInterestEntry,
   calculateInterestToDate,
   getUserLoanDetail,

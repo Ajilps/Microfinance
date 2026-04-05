@@ -18,6 +18,7 @@ import {
 } from "../controllers/attendanceController.js";
 import {
   addLoanTransaction,
+  applyUnrecordedInterest,
   recordInterestEntry,
   calculateInterestToDate,
   getUserLoanDetail,
@@ -81,6 +82,8 @@ router.get("/loans/calculate/all/interest", (req, res, next) => {
 router.post("/loans/:userId/transaction", adminProtect, addLoanTransaction);
 // POST   /api/admin/loans/:userId/interest — record a 4-week interest entry
 router.post("/loans/:userId/interest", adminProtect, recordInterestEntry);
+// POST   /api/admin/loans/:userId/interest/apply-unrecorded — apply unrecorded interest to balance
+router.post("/loans/:userId/interest/apply-unrecorded", adminProtect, applyUnrecordedInterest);
 
 // ─── Savings Management ───────────────────────────────────────────────────────
 // POST   /api/admin/savings/:userId/payment — record weekly savings payment

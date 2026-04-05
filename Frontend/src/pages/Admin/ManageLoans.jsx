@@ -116,6 +116,52 @@ const ManageLoans = () => {
     }
   };
 
+  const [applyingUnrecorded, setApplyingUnrecorded] = useState(false);
+
+  const handleApplyUnrecordedInterest = async () => {
+    if (!interestCalc || interestCalc.totalUnrecorded <= 0 || applyingUnrecorded) return;
+    
+    const unrecordedAmount = interestCalc.totalUnrecorded;
+    setApplyingUnrecorded(true);
+    const originalInterestCalc = { ...interestCalc };
+    
+    // Optimistic update
+    setInterestCalc(prev => prev ? {
+      ...prev,
+      totalAlreadyRecorded: prev.totalAlreadyRecorded + prev.totalUnrecorded,
+      totalUnrecorded: 0,
+    } : null);
+
+    try {
+      const response = await api.post(`/admin/loans/${selectedUserId}/interest/apply-unrecorded`, {
+        amount: unrecordedAmount,
+      });
+      
+      if (response.data && response.data.updatedInterestBalance !== undefined) {
+        setUserLedger(prev => prev ? ({
+          ...prev,
+          summary: {
+            ...prev.summary,
+            interestBalance: response.data.updatedInterestBalance,
+            totalInterestAccrued: response.data.updatedInterestAccrued ?? prev.summary.totalInterestAccrued,
+            totalInterestRepaid: response.data.updatedInterestRepaid ?? prev.summary.totalInterestRepaid,
+            totalOutstanding: response.data.updatedTotalOutstanding ?? prev.summary.totalOutstanding,
+          },
+        }) : null);
+      }
+      
+      toast.success('Unrecorded interest applied successfully');
+      // Recalculate to refresh the periods
+      await handleCalculateInterest();
+    } catch (error) {
+      // Revert optimistic update on error
+      setInterestCalc(originalInterestCalc);
+      toast.error(error.response?.data?.message || 'Failed to apply unrecorded interest');
+    } finally {
+      setApplyingUnrecorded(false);
+    }
+  };
+
   const handleTxSubmit = async (data) => {
     setTxSubmitting(true);
     try {
@@ -396,9 +442,20 @@ const ManageLoans = () => {
                           <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Already Recorded</div>
                           <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#10b981' }}>₹{interestCalc.totalAlreadyRecorded.toFixed(2)}</div>
                         </div>
-                        <div style={{ flex: 1, background: '#fef3c7', borderRadius: '8px', padding: '0.75rem', textAlign: 'center' }}>
+                        <div style={{ flex: 1, background: '#fef3c7', borderRadius: '8px', padding: '0.75rem', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                           <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Unrecorded</div>
                           <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#92400e' }}>₹{interestCalc.totalUnrecorded.toFixed(2)}</div>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+                            onClick={handleApplyUnrecordedInterest}
+                            disabled={interestCalc.totalUnrecorded <= 0 || applyingUnrecorded}
+                            aria-label="Apply unrecorded interest to loan balance"
+                            title={interestCalc.totalUnrecorded <= 0 ? 'No unrecorded interest to apply' : 'Apply unrecorded interest to interest balance'}
+                          >
+                            {applyingUnrecorded ? 'Applying...' : 'Apply Interest'}
+                          </button>
                         </div>
                       </div>
 
