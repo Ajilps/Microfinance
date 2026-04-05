@@ -1,5 +1,6 @@
 import SavingsPayment from "../models/savingsModel.js";
 import User from "../models/userModel.js";
+import AuditLog from "../models/auditLogModel.js";
 
 // ─── Helper: normalize a date to the start of its week (Monday) ───────────────
 const getWeekStart = (date) => {
@@ -180,10 +181,82 @@ const getMySavingsSummary = async (req, res) => {
   });
 };
 
+// ─── ADMIN: Hard-delete a savings payment with audit log ──────────────────────
+// DELETE /api/admin/savings/:userId/payment/:paymentId
+// Body (optional): { reason?: string }
+const deleteSavingsPayment = async (req, res) => {
+  const { userId, paymentId } = req.params;
+  const { reason = "" } = req.body || {};
+
+  // 1. Verify the user exists
+  const user = await User.findById(userId).select("name role");
+  if (!user || user.role !== "user") {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  // 2. Verify the payment exists and belongs to this user
+  const payment = await SavingsPayment.findOne({ _id: paymentId, user: userId });
+  if (!payment) {
+    return res.status(404).json({ message: "Savings payment not found" });
+  }
+
+  // 3. Compute totals BEFORE deletion for audit log
+  const allPaymentsBefore = await SavingsPayment.find({ user: userId });
+  const totalBefore = allPaymentsBefore.reduce((s, p) => s + p.amount, 0);
+
+  // 4. Hard-delete the payment
+  await SavingsPayment.deleteOne({ _id: paymentId });
+
+  // 5. Recompute totals from remaining records
+  const allPaymentsAfter = await SavingsPayment.find({ user: userId });
+  const totalAfter = allPaymentsAfter.reduce((s, p) => s + p.amount, 0);
+
+  const summaryBefore = {
+    totalSavings: parseFloat(totalBefore.toFixed(2)),
+    savingsInterest: parseFloat((totalBefore * 0.01).toFixed(2)),
+    paymentsCount: allPaymentsBefore.length,
+  };
+  const summaryAfter = {
+    totalSavings: parseFloat(totalAfter.toFixed(2)),
+    savingsInterest: parseFloat((totalAfter * 0.01).toFixed(2)),
+    paymentsCount: allPaymentsAfter.length,
+  };
+
+  // 6. Write audit log (non-blocking)
+  try {
+    await AuditLog.create({
+      adminId:   req.user._id,
+      adminName: req.user.name || "",
+      action:    "DELETE_SAVINGS_PAYMENT",
+      userId,
+      deletedRecordId: paymentId,
+      deletedRecord: {
+        type:   "savings",
+        amount: payment.amount,
+        date:   payment.paidOn,
+        note:   payment.note,
+      },
+      summaryBefore,
+      summaryAfter,
+      reason,
+    });
+  } catch (auditErr) {
+    console.error("[AuditLog] Failed to write audit log:", auditErr.message);
+  }
+
+  return res.json({
+    success: true,
+    deletedPaymentId: paymentId,
+    userId,
+    summaryAfter,
+  });
+};
+
 export {
   recordSavingsPayment,
   updateSavingsPayment,
   getUserSavingsDetail,
   getAllUsersSavingsOverview,
   getMySavingsSummary,
+  deleteSavingsPayment,
 };

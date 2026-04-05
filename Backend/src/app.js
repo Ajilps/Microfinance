@@ -8,7 +8,6 @@ import connectDB from "./config/db.js";
 import userRoutes from "./routes/userRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
-import { startInterestCron } from "./utils/interestCron.js";
 
 dotenv.config();
 
@@ -38,9 +37,6 @@ app.get("*", (req, res) => {
     res.sendFile(path.join(distPath, "index.html"));
   }
 });
-
-// Start cron
-startInterestCron();
 
 // Error handlers (LAST)
 app.use(notFound);

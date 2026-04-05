@@ -23,16 +23,16 @@ import {
   calculateInterestToDate,
   getUserLoanDetail,
   getAllUsersLoanOverview,
+  deleteLoanTransaction,
 } from "../controllers/loanController.js";
 import {
   recordSavingsPayment,
   updateSavingsPayment,
   getUserSavingsDetail,
   getAllUsersSavingsOverview,
+  deleteSavingsPayment,
 } from "../controllers/savingsController.js";
 import { adminProtect } from "../middleware/adminMiddleware.js";
-
-import { applyLoanInterest, calculateAndApplyLoanInterest } from "../utils/interestCron.js";
 
 const router = express.Router();
 
@@ -44,18 +44,6 @@ router.put("/users/:id", adminProtect, updateUser);
 router.delete("/users/:id", adminProtect, deleteUser);
 router.post("/create", adminProtect, createAdmin);
 router.get("/all", adminProtect, getAllAdmins);
-
-// ─── Interest Calculation ───────────────────────────────────────────────
-// POST /api/admin/users/interest — manual admin trigger for interest calculation
-router.post("/users/interest", adminProtect, async (req, res) => {
-  console.log("[Route] POST /api/admin/users/interest — manual interest trigger");
-  try {
-    const result = await calculateAndApplyLoanInterest();
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ message: "Interest calculation failed: " + err.message });
-  }
-});
 
 // ─── Attendance ───────────────────────────────────────────────────────────────
 // Mark weekly attendance for all users (bulk upsert)
@@ -84,18 +72,14 @@ router.get(
   adminProtect,
   calculateInterestToDate,
 );
-//=========================
-router.get("/loans/calculate/all/interest", (req, res, next) => {
-  console.log("get request to /loans/calculate/all/interest");
-  next();
-}, applyLoanInterest)
-//============================
 // POST   /api/admin/loans/:userId/transaction — add loan/repayment/fine transaction
 router.post("/loans/:userId/transaction", adminProtect, addLoanTransaction);
 // POST   /api/admin/loans/:userId/interest — record a 4-week interest entry
 router.post("/loans/:userId/interest", adminProtect, recordInterestEntry);
 // POST   /api/admin/loans/:userId/interest/apply-unrecorded — apply unrecorded interest to balance
 router.post("/loans/:userId/interest/apply-unrecorded", adminProtect, applyUnrecordedInterest);
+// DELETE /api/admin/loans/:userId/transaction/:transactionId — hard-delete a loan transaction
+router.delete("/loans/:userId/transaction/:transactionId", adminProtect, deleteLoanTransaction);
 
 // ─── Savings Management ───────────────────────────────────────────────────────
 // POST   /api/admin/savings/:userId/payment — record weekly savings payment
@@ -106,6 +90,8 @@ router.put(
   adminProtect,
   updateSavingsPayment,
 );
+// DELETE /api/admin/savings/:userId/payment/:paymentId — hard-delete a savings payment
+router.delete("/savings/:userId/payment/:paymentId", adminProtect, deleteSavingsPayment);
 // GET    /api/admin/savings/:userId — full savings history + interest for a user
 router.get("/savings/:userId", adminProtect, getUserSavingsDetail);
 // GET    /api/admin/savings — all users' savings overview

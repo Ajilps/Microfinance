@@ -11,7 +11,6 @@ const ManageLoans = () => {
   const [users, setUsers] = useState([]);
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [applyingInterest, setApplyingInterest] = useState(false);
 
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [userLedger, setUserLedger] = useState(null);
@@ -110,7 +109,14 @@ const ManageLoans = () => {
       await fetchUserLedger(selectedUserId);
       await handleCalculateInterest();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to record interest period');
+      // 409 = already recorded (idempotency guard fired) — refresh so UI reflects reality
+      if (error.response?.status === 409) {
+        toast.info('This period was already recorded — refreshing.');
+        await fetchUserLedger(selectedUserId);
+        await handleCalculateInterest();
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to record interest period');
+      }
     } finally {
       setRecordingPeriod(null);
     }
@@ -118,25 +124,27 @@ const ManageLoans = () => {
 
   const [applyingUnrecorded, setApplyingUnrecorded] = useState(false);
 
+  // Delete-transaction state
+  const [deleteModal, setDeleteModal] = useState(null); // { tx } | null
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
   const handleApplyUnrecordedInterest = async () => {
     if (!interestCalc || interestCalc.totalUnrecorded <= 0 || applyingUnrecorded) return;
-    
-    const unrecordedAmount = interestCalc.totalUnrecorded;
     setApplyingUnrecorded(true);
-    const originalInterestCalc = { ...interestCalc };
-    
-    // Optimistic update
-    setInterestCalc(prev => prev ? {
-      ...prev,
-      totalAlreadyRecorded: prev.totalAlreadyRecorded + prev.totalUnrecorded,
-      totalUnrecorded: 0,
-    } : null);
 
+    // NOTE: we intentionally do NOT do an optimistic state update here.
+    // The backend re-derives all unrecorded periods from the live ledger, so
+    // the only safe way to refresh is to call handleCalculateInterest() after
+    // the request completes. Any optimistic mutation risks showing stale data
+    // if a concurrent request or navigation happens in between.
     try {
-      const response = await api.post(`/admin/loans/${selectedUserId}/interest/apply-unrecorded`, {
-        amount: unrecordedAmount,
-      });
-      
+      const response = await api.post(
+        `/admin/loans/${selectedUserId}/interest/apply-unrecorded`,
+        { toDate: calcToDate }, // let backend re-derive the amount from live ledger
+      );
+
+      // Update the balance summary cards with server-authoritative values
       if (response.data && response.data.updatedInterestBalance !== undefined) {
         setUserLedger(prev => prev ? ({
           ...prev,
@@ -149,16 +157,66 @@ const ManageLoans = () => {
           },
         }) : null);
       }
-      
-      toast.success('Unrecorded interest applied successfully');
-      // Recalculate to refresh the periods
+
+      const periodsApplied = response.data?.periodsApplied ?? 0;
+      if (periodsApplied === 0) {
+        toast.info('No new unrecorded interest periods to apply.');
+      } else {
+        toast.success(`Applied ${periodsApplied} interest period${periodsApplied !== 1 ? 's' : ''} successfully`);
+      }
+
+      // Always re-fetch the ledger and recalculate so the UI is fully in sync
+      await fetchUserLedger(selectedUserId);
       await handleCalculateInterest();
     } catch (error) {
-      // Revert optimistic update on error
-      setInterestCalc(originalInterestCalc);
       toast.error(error.response?.data?.message || 'Failed to apply unrecorded interest');
     } finally {
       setApplyingUnrecorded(false);
+    }
+  };
+
+  const openDeleteModal = (tx) => {
+    setDeleteModal({ tx });
+    setDeleteReason('');
+  };
+
+  const closeDeleteModal = () => {
+    if (deleting) return;
+    setDeleteModal(null);
+    setDeleteReason('');
+  };
+
+  const handleDeleteTransaction = async () => {
+    if (!deleteModal || deleting) return;
+    const { tx } = deleteModal;
+    setDeleting(true);
+    try {
+      const res = await api.delete(
+        `/admin/loans/${selectedUserId}/transaction/${tx._id}`,
+        { data: { reason: deleteReason.trim() } },
+      );
+      toast.success('Transaction deleted successfully');
+      setDeleteModal(null);
+      setDeleteReason('');
+      // Update ledger summary optimistically with server-returned values
+      if (res.data?.summaryAfter) {
+        setUserLedger(prev => prev ? { ...prev, summary: res.data.summaryAfter } : null);
+      }
+      // Remove the tx from local transactions list without a full refetch
+      setUserLedger(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          transactions: prev.transactions.filter(t => t._id !== tx._id),
+        };
+      });
+      // Refresh overview row and recalculate interest if panel is open
+      fetchLoansOverview();
+      if (showCalcPanel) handleCalculateInterest();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete transaction');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -189,19 +247,6 @@ const ManageLoans = () => {
       toast.error(error.response?.data?.message || 'Failed to add transaction');
     } finally {
       setTxSubmitting(false);
-    }
-  };
-
-  const handleApplyInterest = async () => {
-    setApplyingInterest(true);
-    try {
-      await api.post('/admin/users/interest');
-      toast.success('Interest calculation completed successfully');
-      fetchLoansOverview();
-    } catch (error) {
-      toast.error('Interest calculation failed: ' + (error.response?.data?.message || error.message));
-    } finally {
-      setApplyingInterest(false);
     }
   };
 
@@ -277,25 +322,9 @@ const ManageLoans = () => {
     <div>
       <div className="flex-between mb-4">
         <h2>Manage Loans</h2>
-        {selectedUserId ? (
+        {selectedUserId && (
           <button className="btn btn-secondary" onClick={goBack}>
             ← Back to Overview
-          </button>
-        ) : (
-          <button
-            className="btn btn-primary"
-            onClick={handleApplyInterest}
-            disabled={applyingInterest}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-          >
-            {applyingInterest ? (
-              <>
-                <span className="spinner" style={{ width: '1rem', height: '1rem', borderWidth: '2px', margin: 0 }}></span>
-                Applying Interest…
-              </>
-            ) : (
-              '⚡ Apply Interest Now'
-            )}
           </button>
         )}
       </div>
@@ -539,6 +568,7 @@ const ManageLoans = () => {
                               <th>Amount</th>
                               <th>Recorded By</th>
                               <th>Note / Period</th>
+                              <th>Action</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -559,6 +589,26 @@ const ManageLoans = () => {
                                   ) : (
                                     tx.note || '—'
                                   )}
+                                </td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    onClick={() => openDeleteModal(tx)}
+                                    aria-label={`Delete transaction of ₹${tx.amount.toFixed(2)} on ${moment(tx.date).format('MMM Do YYYY')}`}
+                                    style={{
+                                      background: 'none',
+                                      border: '1px solid #fca5a5',
+                                      borderRadius: '6px',
+                                      color: '#dc2626',
+                                      cursor: 'pointer',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 600,
+                                      padding: '0.25rem 0.6rem',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
                                 </td>
                               </tr>
                             ))}
@@ -663,6 +713,96 @@ const ManageLoans = () => {
                 <li>Use <strong>"Calculate Interest to Date"</strong> to generate and record 4-week interest periods</li>
                 <li>Repayments must specify whether they apply to <strong>interest</strong> or <strong>principal</strong></li>
               </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Transaction Confirmation Modal ── */}
+      {deleteModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-modal-title"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '1rem',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeDeleteModal(); }}
+        >
+          <div style={{
+            background: '#fff', borderRadius: '12px', padding: '1.75rem',
+            maxWidth: '480px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          }}>
+            <h3 id="delete-modal-title" style={{ margin: '0 0 0.25rem', color: '#dc2626', fontSize: '1.1rem' }}>
+              Delete Transaction
+            </h3>
+            <p style={{ margin: '0 0 1.25rem', fontSize: '0.85rem', color: '#64748b' }}>
+              This action is permanent and cannot be undone. Balances will be recalculated automatically.
+            </p>
+
+            {/* Transaction summary */}
+            <div style={{
+              background: '#fef2f2', border: '1px solid #fca5a5',
+              borderRadius: '8px', padding: '1rem', marginBottom: '1.25rem',
+              fontSize: '0.88rem',
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                <span style={{ color: '#64748b' }}>Type</span>
+                <span style={{ fontWeight: 600 }}>{deleteModal.tx.type}{deleteModal.tx.paymentTarget ? ` (${deleteModal.tx.paymentTarget})` : ''}</span>
+                <span style={{ color: '#64748b' }}>Amount</span>
+                <span style={{ fontWeight: 700, color: '#dc2626' }}>₹{deleteModal.tx.amount.toFixed(2)}</span>
+                <span style={{ color: '#64748b' }}>Date</span>
+                <span>{moment(deleteModal.tx.date).format('MMM Do YYYY')}</span>
+                {deleteModal.tx.note && (
+                  <>
+                    <span style={{ color: '#64748b' }}>Note</span>
+                    <span style={{ wordBreak: 'break-word' }}>{deleteModal.tx.note}</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Optional reason */}
+            <div className="input-group" style={{ marginBottom: '1.25rem' }}>
+              <label className="input-label" htmlFor="delete-reason">Reason for deletion (optional)</label>
+              <input
+                id="delete-reason"
+                type="text"
+                className="input-field"
+                placeholder="e.g. Entered in error"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                disabled={deleting}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={closeDeleteModal}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteTransaction}
+                disabled={deleting}
+                aria-label="Confirm permanent deletion of transaction"
+                style={{
+                  background: deleting ? '#fca5a5' : '#dc2626',
+                  color: '#fff', border: 'none', borderRadius: '8px',
+                  padding: '0.55rem 1.25rem', fontWeight: 600,
+                  cursor: deleting ? 'not-allowed' : 'pointer',
+                  fontSize: '0.9rem',
+                }}
+              >
+                {deleting ? 'Deleting...' : 'Yes, Delete'}
+              </button>
             </div>
           </div>
         </div>

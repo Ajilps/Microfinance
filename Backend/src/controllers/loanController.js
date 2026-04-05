@@ -1,5 +1,6 @@
 import LoanTransaction from "../models/loanModel.js";
 import User from "../models/userModel.js";
+import AuditLog from "../models/auditLogModel.js";
 
 // ─── Helper: compute separated principal and interest balances ─────────────────
 /**
@@ -233,49 +234,17 @@ const addLoanTransaction = async (req, res) => {
 res.status(201).json(transaction);
 };
 
-// ─── ADMIN: Apply unrecorded interest to loan balance ──────────────────────
-// POST /api/admin/loans/:userId/interest/apply-unrecorded
-// Body: { amount }
-const applyUnrecordedInterest = async (req, res) => {
-  const { userId } = req.params;
-  const { amount } = req.body;
-
-  if (!amount || amount <= 0) {
-    return res.status(400).json({ message: "Valid positive amount is required" });
-  }
-
-  const user = await User.findById(userId);
-  if (!user || user.role !== "user") {
-    return res.status(404).json({ message: "User not found" });
-  }
-
-  const transaction = await LoanTransaction.create({
-    user: userId,
-    type: "interest",
-    amount: parseFloat(amount),
-    date: new Date(),
-    note: `Applied unrecorded interest: ₹${parseFloat(amount).toFixed(2)}`,
-    recordedBy: req.user._id,
-    interestPeriod: {
-      periodStart: null,
-      periodEnd: null,
-      principalBalance: null,
-      interestRate: 0.01,
-    },
-  });
-
-  const transactions = await LoanTransaction.find({ user: userId }).sort({ date: 1 });
-  const summary = computeLoanSummary(transactions);
-
-  res.status(201).json({
-    transaction,
-    updatedInterestBalance: summary.interestBalance,
-    updatedInterestAccrued: summary.totalInterestAccrued,
-    updatedInterestRepaid: summary.totalInterestRepaid,
-    updatedTotalOutstanding: summary.totalOutstanding,
-  });
-};
-
+// ─── ADMIN: Record a single interest period (idempotent) ──────────────────────
+// POST /api/admin/loans/:userId/interest
+// Body: { periodStart, periodEnd, principalBalance, interestRate, interestAmount, date, note }
+//
+// Idempotency guarantee:
+//   Before inserting, we check whether an interest transaction already exists
+//   for this (user, periodStart). If so, we return the existing record with 200
+//   instead of creating a duplicate. The unique DB index is the backstop: even
+//   if two concurrent requests pass the application-level check simultaneously,
+//   only one INSERT will succeed; the second receives a Mongo 11000 error which
+//   we convert to a 409 → the frontend can treat that as "already recorded".
 const recordInterestEntry = async (req, res) => {
   const { userId } = req.params;
   const {
@@ -299,24 +268,158 @@ const recordInterestEntry = async (req, res) => {
     return res.status(404).json({ message: "User not found" });
   }
 
-  const transaction = await LoanTransaction.create({
+  const parsedPeriodStart = new Date(periodStart);
+
+  // ── Idempotency check ──────────────────────────────────────────────────────
+  // The unique index enforces this at DB level too, but an explicit pre-check
+  // gives a clean 409 instead of a raw duplicate-key error.
+  const existing = await LoanTransaction.findOne({
     user: userId,
     type: "interest",
-    amount: parseFloat(interestAmount),
-    date: new Date(date),
-    note:
-      note ||
-      `Interest: 1% of ₹${principalBalance?.toFixed(2)} for period ${new Date(periodStart).toLocaleDateString()} – ${new Date(periodEnd).toLocaleDateString()}`,
-    recordedBy: req.user._id,
-    interestPeriod: {
-      periodStart: new Date(periodStart),
-      periodEnd: new Date(periodEnd),
-      principalBalance: parseFloat(principalBalance || 0),
-      interestRate: parseFloat(interestRate || 0.01),
+    "interestPeriod.periodStart": {
+      $gte: new Date(parsedPeriodStart.getTime() - 12 * 60 * 60 * 1000), // ±12 h window
+      $lte: new Date(parsedPeriodStart.getTime() + 12 * 60 * 60 * 1000),
     },
   });
 
-  res.status(201).json(transaction);
+  if (existing) {
+    return res.status(409).json({
+      message: "Interest for this period has already been recorded",
+      existing,
+    });
+  }
+
+  try {
+    const transaction = await LoanTransaction.create({
+      user: userId,
+      type: "interest",
+      amount: parseFloat(interestAmount),
+      date: new Date(date),
+      note:
+        note ||
+        `Interest: 1% of ₹${parseFloat(principalBalance || 0).toFixed(2)} for period ${parsedPeriodStart.toLocaleDateString()} – ${new Date(periodEnd).toLocaleDateString()}`,
+      recordedBy: req.user._id,
+      interestPeriod: {
+        periodStart: parsedPeriodStart,
+        periodEnd: new Date(periodEnd),
+        principalBalance: parseFloat(principalBalance || 0),
+        interestRate: parseFloat(interestRate || 0.01),
+      },
+    });
+    return res.status(201).json(transaction);
+  } catch (err) {
+    // Duplicate-key from the unique index (race condition backstop)
+    if (err.code === 11000) {
+      const existing2 = await LoanTransaction.findOne({
+        user: userId,
+        type: "interest",
+        "interestPeriod.periodStart": {
+          $gte: new Date(parsedPeriodStart.getTime() - 12 * 60 * 60 * 1000),
+          $lte: new Date(parsedPeriodStart.getTime() + 12 * 60 * 60 * 1000),
+        },
+      });
+      return res.status(409).json({
+        message: "Interest for this period has already been recorded",
+        existing: existing2,
+      });
+    }
+    throw err;
+  }
+};
+
+// ─── ADMIN: Apply ALL unrecorded interest periods to the balance ───────────────
+// POST /api/admin/loans/:userId/interest/apply-unrecorded
+// Body: { toDate?: string }  (ISO date; defaults to today)
+//
+// ROOT CAUSE of prior bug:
+//   The old version created a SINGLE transaction with periodStart=null.
+//   calculateInterestPeriods matches periods by periodStart (±1 day), so a
+//   null-period entry was NEVER matched, meaning totalUnrecorded never dropped
+//   to 0, and the button could be clicked repeatedly to add unlimited interest.
+//
+// Fix:
+//   Re-derive the full list of unrecorded periods server-side (same logic as
+//   calculateInterestToDate), then record each period individually using the
+//   same idempotent path as recordInterestEntry.  The unique index on
+//   (user, interestPeriod.periodStart) makes this inherently idempotent:
+//   a period that was already recorded will produce a duplicate-key error which
+//   we silently skip.
+const applyUnrecordedInterest = async (req, res) => {
+  const { userId } = req.params;
+  const { toDate } = req.body;
+
+  const user = await User.findById(userId);
+  if (!user || user.role !== "user") {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  // Fetch the live ledger — never trust the amount sent from the browser
+  const transactions = await LoanTransaction.find({ user: userId }).sort({ date: 1 });
+
+  if (transactions.length === 0) {
+    return res.status(400).json({ message: "No transactions found for this user" });
+  }
+
+  const targetDate = toDate ? new Date(toDate) : new Date();
+  const periods = calculateInterestPeriods(transactions, targetDate);
+  const unrecordedPeriods = periods.filter((p) => !p.alreadyRecorded && !p.isPartial);
+
+  if (unrecordedPeriods.length === 0) {
+    // Nothing to apply — fetch fresh summary and return it
+    const summary = computeLoanSummary(transactions);
+    return res.json({
+      message: "No unrecorded interest periods to apply",
+      periodsApplied: 0,
+      updatedInterestBalance: summary.interestBalance,
+      updatedInterestAccrued: summary.totalInterestAccrued,
+      updatedInterestRepaid: summary.totalInterestRepaid,
+      updatedTotalOutstanding: summary.totalOutstanding,
+    });
+  }
+
+  const now = new Date();
+  let periodsApplied = 0;
+  let totalApplied = 0;
+
+  for (const period of unrecordedPeriods) {
+    try {
+      await LoanTransaction.create({
+        user: userId,
+        type: "interest",
+        amount: period.interestAmount,
+        date: now,
+        note: `Interest: 1% of ₹${period.principalBalance.toFixed(2)} for ${period.periodStart.toLocaleDateString("en-IN")} – ${period.periodEnd.toLocaleDateString("en-IN")}`,
+        recordedBy: req.user._id,
+        interestPeriod: {
+          periodStart: period.periodStart,
+          periodEnd: period.periodEnd,
+          principalBalance: period.principalBalance,
+          interestRate: period.interestRate,
+        },
+      });
+      periodsApplied++;
+      totalApplied += period.interestAmount;
+    } catch (err) {
+      if (err.code === 11000) {
+        // Already recorded by a concurrent request — skip silently
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  // Recompute summary from the now-updated ledger
+  const updatedTransactions = await LoanTransaction.find({ user: userId }).sort({ date: 1 });
+  const summary = computeLoanSummary(updatedTransactions);
+
+  return res.json({
+    periodsApplied,
+    totalApplied: parseFloat(totalApplied.toFixed(2)),
+    updatedInterestBalance: summary.interestBalance,
+    updatedInterestAccrued: summary.totalInterestAccrued,
+    updatedInterestRepaid: summary.totalInterestRepaid,
+    updatedTotalOutstanding: summary.totalOutstanding,
+  });
 };
 
 // ─── ADMIN: Calculate interest to date (preview, not saved) ───────────────────
@@ -470,6 +573,74 @@ const getMyLoanSummary = async (req, res) => {
   });
 };
 
+// ─── ADMIN: Hard-delete a loan transaction with audit log ─────────────────────
+// DELETE /api/admin/loans/:userId/transaction/:transactionId
+// Body (optional): { reason?: string }
+//
+// Idempotent balance recalculation:
+//   The summary is recomputed from scratch using all REMAINING transactions
+//   after deletion, so the balances are always deterministic regardless of the
+//   order transactions were entered.
+const deleteLoanTransaction = async (req, res) => {
+  const { userId, transactionId } = req.params;
+  const { reason = "" } = req.body || {};
+
+  // 1. Verify the user exists
+  const user = await User.findById(userId).select("name role");
+  if (!user || user.role !== "user") {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  // 2. Verify the transaction exists and belongs to this user
+  const tx = await LoanTransaction.findOne({ _id: transactionId, user: userId });
+  if (!tx) {
+    return res.status(404).json({ message: "Transaction not found" });
+  }
+
+  // 3. Compute summary BEFORE deletion for the audit log
+  const allTxBefore = await LoanTransaction.find({ user: userId }).sort({ date: 1 });
+  const summaryBefore = computeLoanSummary(allTxBefore);
+
+  // 4. Hard-delete the transaction
+  await LoanTransaction.deleteOne({ _id: transactionId });
+
+  // 5. Recompute summary from remaining transactions (single deterministic pass)
+  const allTxAfter = await LoanTransaction.find({ user: userId }).sort({ date: 1 });
+  const summaryAfter = computeLoanSummary(allTxAfter);
+
+  // 6. Write audit log (non-blocking — a failure here must not undo the deletion)
+  try {
+    await AuditLog.create({
+      adminId:   req.user._id,
+      adminName: req.user.name || "",
+      action:    "DELETE_LOAN_TRANSACTION",
+      userId,
+      deletedRecordId: transactionId,
+      deletedRecord: {
+        type:           tx.type,
+        amount:         tx.amount,
+        date:           tx.date,
+        note:           tx.note,
+        paymentTarget:  tx.paymentTarget,
+        interestPeriod: tx.interestPeriod,
+      },
+      summaryBefore,
+      summaryAfter,
+      reason,
+    });
+  } catch (auditErr) {
+    // Log but do not fail the request — the deletion already succeeded
+    console.error("[AuditLog] Failed to write audit log:", auditErr.message);
+  }
+
+  return res.json({
+    success: true,
+    deletedTransactionId: transactionId,
+    userId,
+    summaryAfter,
+  });
+};
+
 export {
   addLoanTransaction,
   applyUnrecordedInterest,
@@ -480,4 +651,5 @@ export {
   getMyLoanSummary,
   computeLoanSummary,
   calculateInterestPeriods,
+  deleteLoanTransaction,
 };

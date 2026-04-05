@@ -65,4 +65,25 @@ const loanTransactionSchema = new mongoose.Schema(
 loanTransactionSchema.index({ user: 1, date: -1 });
 loanTransactionSchema.index({ user: 1, type: 1 });
 
+// ─── Idempotency index ─────────────────────────────────────────────────────────
+// Prevents duplicate interest records for the exact same period.
+// The index is sparse so it only applies to documents where
+// interestPeriod.periodStart is set (i.e. interest-type transactions with
+// a real period). Non-interest transactions and lump-sum entries that have
+// periodStart=null are excluded and remain unconstrained.
+//
+// Effect: a second attempt to INSERT an interest transaction for the same
+// (user, periodStart) will throw a duplicate-key error (code 11000), which
+// all relevant controller functions catch and convert to a 409 response.
+loanTransactionSchema.index(
+  { user: 1, "interestPeriod.periodStart": 1 },
+  {
+    unique: true,
+    sparse: true,   // null / missing periodStart values are NOT indexed → no conflict
+    name: "unique_interest_period_per_user",
+    // partialFilterExpression is a stronger alternative to sparse when supported,
+    // but sparse is universally compatible with MongoDB 4+.
+  },
+);
+
 export default mongoose.model("LoanTransaction", loanTransactionSchema);

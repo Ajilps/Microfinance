@@ -25,6 +25,11 @@ const ManageSavings = () => {
   });
   const [submitLoading, setSubmitLoading] = useState(false);
 
+  // Delete-payment state
+  const [deleteModal, setDeleteModal] = useState(null); // { payment } | null
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
   // Pagination state
   const [overviewPage, setOverviewPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
@@ -95,6 +100,46 @@ const ManageSavings = () => {
       toast.error(error.response?.data?.message || 'Failed to record saving');
     } finally {
       setSubmitLoading(false);
+    }
+  };
+
+  const openDeleteModal = (payment) => {
+    setDeleteModal({ payment });
+    setDeleteReason('');
+  };
+
+  const closeDeleteModal = () => {
+    if (deleting) return;
+    setDeleteModal(null);
+    setDeleteReason('');
+  };
+
+  const handleDeletePayment = async () => {
+    if (!deleteModal || deleting) return;
+    const { payment } = deleteModal;
+    setDeleting(true);
+    try {
+      const res = await api.delete(
+        `/admin/savings/${selectedUserId}/payment/${payment._id}`,
+        { data: { reason: deleteReason.trim() } },
+      );
+      toast.success('Savings payment deleted successfully');
+      setDeleteModal(null);
+      setDeleteReason('');
+      // Update detail view in place
+      if (res.data?.summaryAfter) {
+        setUserSavingsDetail(prev => prev ? {
+          ...prev,
+          totalSavings: res.data.summaryAfter.totalSavings,
+          savingsInterest: res.data.summaryAfter.savingsInterest,
+          payments: prev.payments.filter(p => p._id !== payment._id),
+        } : null);
+      }
+      fetchSavingsOverview();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete savings payment');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -254,6 +299,7 @@ const ManageSavings = () => {
                               <th>Amount</th>
                               <th>Recorded By</th>
                               <th>Note</th>
+                              <th>Action</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -264,6 +310,26 @@ const ManageSavings = () => {
                                 <td style={{ fontWeight: 600, color: 'var(--secondary-color)' }}>₹{(payment.amount || 0).toFixed(2)}</td>
                                 <td style={{ fontSize: '0.85rem', color: '#64748b' }}>{payment.recordedBy?.name || '—'}</td>
                                 <td style={{ fontSize: '0.85rem', color: '#64748b' }}>{payment.note || '—'}</td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    onClick={() => openDeleteModal(payment)}
+                                    aria-label={`Delete savings payment of ₹${payment.amount.toFixed(2)} on ${moment(payment.paidOn).format('MMM Do YYYY')}`}
+                                    style={{
+                                      background: 'none',
+                                      border: '1px solid #fca5a5',
+                                      borderRadius: '6px',
+                                      color: '#dc2626',
+                                      cursor: 'pointer',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 600,
+                                      padding: '0.25rem 0.6rem',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -338,6 +404,96 @@ const ManageSavings = () => {
                 {submitLoading ? 'Recording...' : 'Record Payment'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Savings Payment Confirmation Modal ── */}
+      {deleteModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-savings-modal-title"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '1rem',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeDeleteModal(); }}
+        >
+          <div style={{
+            background: '#fff', borderRadius: '12px', padding: '1.75rem',
+            maxWidth: '440px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          }}>
+            <h3 id="delete-savings-modal-title" style={{ margin: '0 0 0.25rem', color: '#dc2626', fontSize: '1.1rem' }}>
+              Delete Savings Payment
+            </h3>
+            <p style={{ margin: '0 0 1.25rem', fontSize: '0.85rem', color: '#64748b' }}>
+              This action is permanent and cannot be undone. Savings total will be recalculated.
+            </p>
+
+            {/* Payment summary */}
+            <div style={{
+              background: '#fef2f2', border: '1px solid #fca5a5',
+              borderRadius: '8px', padding: '1rem', marginBottom: '1.25rem',
+              fontSize: '0.88rem',
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                <span style={{ color: '#64748b' }}>Week Of</span>
+                <span style={{ fontWeight: 600 }}>{moment(deleteModal.payment.weekStartDate).format('MMM Do YYYY')}</span>
+                <span style={{ color: '#64748b' }}>Paid On</span>
+                <span>{moment(deleteModal.payment.paidOn).format('MMM Do YYYY')}</span>
+                <span style={{ color: '#64748b' }}>Amount</span>
+                <span style={{ fontWeight: 700, color: '#dc2626' }}>₹{deleteModal.payment.amount.toFixed(2)}</span>
+                {deleteModal.payment.note && (
+                  <>
+                    <span style={{ color: '#64748b' }}>Note</span>
+                    <span style={{ wordBreak: 'break-word' }}>{deleteModal.payment.note}</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Optional reason */}
+            <div className="input-group" style={{ marginBottom: '1.25rem' }}>
+              <label className="input-label" htmlFor="delete-savings-reason">Reason for deletion (optional)</label>
+              <input
+                id="delete-savings-reason"
+                type="text"
+                className="input-field"
+                placeholder="e.g. Entered in error"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                disabled={deleting}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={closeDeleteModal}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeletePayment}
+                disabled={deleting}
+                aria-label="Confirm permanent deletion of savings payment"
+                style={{
+                  background: deleting ? '#fca5a5' : '#dc2626',
+                  color: '#fff', border: 'none', borderRadius: '8px',
+                  padding: '0.55rem 1.25rem', fontWeight: 600,
+                  cursor: deleting ? 'not-allowed' : 'pointer',
+                  fontSize: '0.9rem',
+                }}
+              >
+                {deleting ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}

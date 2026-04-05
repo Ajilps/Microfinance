@@ -12,26 +12,11 @@ import { getMySavingsSummary } from "../controllers/savingsController.js";
 import { getMyAttendanceSummary } from "../controllers/attendanceController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
-import { applyLoanInterest } from "../utils/interestCron.js";
 const router = express.Router();
 
 // Public routes
 router.post("/register", registerUser);
 router.post("/login", loginUser);
-
-//=========================
-router.post("/interest", async (req, res) => {
-  console.log("[Route] POST /api/users/interest — manual interest trigger");
-  try {
-    await applyLoanInterest();
-    res.json({ message: "Interest calculation completed successfully" });
-  } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Interest calculation failed: " + err.message });
-  }
-});
-//============================
 
 // Protected routes
 router.get("/", protect, getUsers);
