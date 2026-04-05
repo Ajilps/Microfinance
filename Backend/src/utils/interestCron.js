@@ -251,15 +251,17 @@ const applyLoanInterest = async () => {
 };
 
 /**
- * Manual-admin trigger for calculating and applying loan interest.
- * 
- * This function is idempotent:
- * - Uses lastInterestCalculationAt on each user to track when interest was last calculated
- * - Only calculates interest for the period since the last calculation
- * - Updates unpaidInterest on the user (accumulates, does not reset)
- * - Updates lastInterestCalculationAt to now after successful calculation
- * 
- * Returns a summary of loans processed.
+ * Manual admin trigger to calculate and apply 28-day loan interest for all users.
+ *
+ * IDEMPOTENCY GUARANTEE:
+ *   The source of truth is the LoanTransaction ledger itself.
+ *   nextPeriodStart is always derived from the periodEnd of the last recorded
+ *   interest transaction (same logic as the cron job). This means:
+ *     - Repeated invocations never create duplicate interest periods.
+ *     - Works correctly even when the cron has already applied some periods.
+ *     - The "Apply Interest Now" admin button is safe to click multiple times.
+ *
+ * Returns a summary of what was processed.
  */
 const calculateAndApplyLoanInterest = async () => {
   console.log("[InterestCron] Manual interest calculation triggered...");
@@ -268,74 +270,62 @@ const calculateAndApplyLoanInterest = async () => {
     totalLoansProcessed: 0,
     totalInterestApplied: 0,
     loansUpdated: [],
+    skipped: 0,
     errors: [],
     timestamp: new Date().toISOString(),
   };
 
   try {
-    const users = await User.find({ role: "user" }).select("_id name unpaidInterest lastInterestCalculationAt");
+    const users = await User.find({ role: "user" }).select("_id name");
     const now = new Date();
 
     for (const user of users) {
       try {
+        // Fetch full sorted transaction history — this IS the source of truth
         const transactions = await LoanTransaction.find({ user: user._id }).sort({ date: 1 });
 
         if (transactions.length === 0) {
+          results.skipped++;
           continue;
         }
 
-        const { principalBalance } = computeBalances(transactions);
-
-        if (principalBalance <= 0) {
-          if (transactions.some(tx => tx.type === "loan")) {
-            results.totalLoansProcessed++;
-          }
+        // Must have at least one loan disbursement
+        const firstLoan = transactions.find((tx) => tx.type === "loan");
+        if (!firstLoan) {
+          results.skipped++;
           continue;
         }
 
-        const hasLoan = transactions.some(tx => tx.type === "loan");
-        if (!hasLoan) {
-          continue;
-        }
+        // Determine where to start the next period — anchored to the ledger, not a timestamp.
+        // If any interest transactions exist, use the periodEnd of the last one.
+        // This is identical to applyLoanInterest and guarantees no duplicates.
+        const interestTxs = transactions.filter(
+          (tx) => tx.type === "interest" && tx.interestPeriod?.periodEnd,
+        );
+        const lastInterestTx = interestTxs.at(-1);
 
-        const lastCalcAt = user.lastInterestCalculationAt 
-          ? new Date(user.lastInterestCalculationAt) 
-          : null;
-        
-        const interestTxs = transactions.filter((tx) => tx.type === "interest");
         let nextPeriodStart;
-
-        if (lastCalcAt) {
-          nextPeriodStart = lastCalcAt;
-        } else if (interestTxs.length > 0) {
-          const lastInterestTx = interestTxs.at(-1);
-          if (lastInterestTx?.interestPeriod?.periodEnd) {
-            nextPeriodStart = new Date(lastInterestTx.interestPeriod.periodEnd);
-          } else {
-            const firstLoan = transactions.find((tx) => tx.type === "loan");
-            nextPeriodStart = firstLoan ? new Date(firstLoan.date) : null;
-          }
+        if (lastInterestTx) {
+          nextPeriodStart = new Date(lastInterestTx.interestPeriod.periodEnd);
         } else {
-          const firstLoan = transactions.find((tx) => tx.type === "loan");
-          nextPeriodStart = firstLoan ? new Date(firstLoan.date) : null;
+          nextPeriodStart = new Date(firstLoan.date);
         }
 
-        if (!nextPeriodStart) {
-          continue;
-        }
-
-        let totalInterestForPeriod = 0;
         let periodsAppliedThisRun = 0;
+        let interestAppliedThisUser = 0;
 
+        // Walk through all complete 28-day periods from nextPeriodStart up to now
         while (true) {
           const periodEnd = new Date(nextPeriodStart);
           periodEnd.setDate(periodEnd.getDate() + PERIOD_DAYS);
 
+          // Stop if this period hasn't completed yet
           if (periodEnd > now) break;
 
           const principalAtPeriodStart = getPrincipalAtDate(transactions, nextPeriodStart);
 
           if (principalAtPeriodStart <= 0) {
+            // No principal at start of period — advance without recording
             nextPeriodStart = new Date(periodEnd);
             continue;
           }
@@ -344,30 +334,56 @@ const calculateAndApplyLoanInterest = async () => {
             (principalAtPeriodStart * INTEREST_RATE).toFixed(2),
           );
 
-          if (interestAmount > 0) {
-            totalInterestForPeriod += interestAmount;
-            periodsAppliedThisRun++;
-          }
+          const periodStart = new Date(nextPeriodStart);
 
+          // Write the interest as a LoanTransaction — same format as the cron
+          await LoanTransaction.create({
+            user: user._id,
+            type: "interest",
+            amount: interestAmount,
+            date: now,
+            note: `Interest: 1% of ₹${principalAtPeriodStart.toFixed(2)} for ${periodStart.toLocaleDateString("en-IN")} – ${periodEnd.toLocaleDateString("en-IN")}`,
+            recordedBy: null,
+            interestPeriod: {
+              periodStart,
+              periodEnd,
+              principalBalance: principalAtPeriodStart,
+              interestRate: INTEREST_RATE,
+            },
+          });
+
+          // Push into local array so subsequent period checks in this same run
+          // see the updated state if needed (currently not used for balance recalc
+          // within the same run, but good practice)
+          transactions.push({
+            type: "interest",
+            amount: interestAmount,
+            date: now,
+            interestPeriod: { periodStart, periodEnd, principalBalance: principalAtPeriodStart },
+          });
+
+          console.log(
+            `[InterestCron] Applied ₹${interestAmount} for user ${user.name} (period: ${periodStart.toLocaleDateString("en-IN")} – ${periodEnd.toLocaleDateString("en-IN")})`,
+          );
+
+          interestAppliedThisUser += interestAmount;
+          periodsAppliedThisRun++;
           nextPeriodStart = new Date(periodEnd);
         }
 
-        if (totalInterestForPeriod > 0) {
-          user.unpaidInterest = (user.unpaidInterest || 0) + totalInterestForPeriod;
-          user.lastInterestCalculationAt = now;
-          await user.save();
-
-          results.totalInterestApplied += totalInterestForPeriod;
+        if (periodsAppliedThisRun > 0) {
           results.loansUpdated.push({
-            loanId: user._id.toString(),
             userId: user._id.toString(),
-            periodInterest: totalInterestForPeriod,
+            name: user.name,
             periodsApplied: periodsAppliedThisRun,
+            interestApplied: interestAppliedThisUser,
           });
+          results.totalInterestApplied += interestAppliedThisUser;
         }
 
         results.totalLoansProcessed++;
       } catch (userError) {
+        console.error(`[InterestCron] Error for user ${user._id}:`, userError.message);
         results.errors.push({
           userId: user._id.toString(),
           message: userError.message,
@@ -376,7 +392,8 @@ const calculateAndApplyLoanInterest = async () => {
     }
 
     console.log(
-      `[InterestCron] Manual calculation complete — processed: ${results.totalLoansProcessed}, interest applied: ${results.totalInterestApplied.toFixed(2)}`,
+      `[InterestCron] Manual calculation complete — processed: ${results.totalLoansProcessed}, ` +
+      `interest applied: ₹${results.totalInterestApplied.toFixed(2)}, skipped: ${results.skipped}`,
     );
   } catch (err) {
     console.error("[InterestCron] Manual calculation error:", err.message);

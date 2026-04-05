@@ -195,7 +195,7 @@ const ManageLoans = () => {
   const handleApplyInterest = async () => {
     setApplyingInterest(true);
     try {
-      await api.post('/users/interest');
+      await api.post('/admin/users/interest');
       toast.success('Interest calculation completed successfully');
       fetchLoansOverview();
     } catch (error) {
