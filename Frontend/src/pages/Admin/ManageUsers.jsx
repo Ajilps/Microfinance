@@ -10,9 +10,10 @@ const ManageUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editUser, setEditUser] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', email: '', role: 'user' });
+  const [editForm, setEditForm] = useState({ name: '', email: '', role: 'user', password: '' });
   const [editLoading, setEditLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [password, setPassword] = useState(null);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -45,7 +46,7 @@ const ManageUsers = () => {
 
   const openEdit = (user) => {
     setEditUser(user);
-    setEditForm({ name: user.name, email: user.email, role: user.role });
+    setEditForm({ name: user.name, email: user.email, role: user.role, password: '' });
   };
 
   const handleEditSubmit = async (e) => {
@@ -175,6 +176,16 @@ const ManageUsers = () => {
                 <option value="user">User</option>
                 <option value="admin">Admin</option>
               </select>
+            </div>
+               <div className="input-group">
+              <label className="input-label">New Password (leave blank to keep current)</label>
+              <input
+                type="password"
+                className="input-field"
+                placeholder="Enter new password to change"
+                value={editForm.password}
+                onChange={e => setEditForm(prev => ({ ...prev, password: e.target.value }))}
+              />
             </div>
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
               <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={editLoading}>
