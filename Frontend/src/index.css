@@ -477,7 +477,7 @@ select.input-field option {
   border-radius: var(--r-lg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
+  overflow-x: auto;
   margin-bottom: 1.5rem;
 }
 
