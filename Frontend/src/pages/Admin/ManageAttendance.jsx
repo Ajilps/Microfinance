@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import api from '../../services/api';
 import { toast } from 'react-toastify';
 import moment from 'moment';
@@ -13,7 +13,7 @@ const STATUS_COLORS = {
   leave: { bg: '#e0e7ff', color: '#3730a3' },
 };
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 12;
 
 const ManageAttendance = () => {
   const [activeTab, setActiveTab] = useState('mark');
@@ -83,7 +83,7 @@ const ManageAttendance = () => {
       fetchMonthlyReport(month, year);
       if (activeTab === 'fines' && users.length === 0) fetchUsers();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   // Refresh monthly report when month/year changes (only on those tabs)
@@ -91,7 +91,7 @@ const ManageAttendance = () => {
     if (activeTab === 'monthly' || activeTab === 'fines') {
       fetchMonthlyReport(month, year);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, year]);
 
   // ─── Attendance handlers ──────────────────────────────────────────────────────

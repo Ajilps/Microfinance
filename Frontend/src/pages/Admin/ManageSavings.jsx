@@ -5,7 +5,7 @@ import moment from 'moment';
 import { useForm } from 'react-hook-form';
 import Pagination from '../../components/Pagination';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 12;
 
 const ManageSavings = () => {
   const [users, setUsers] = useState([]);
@@ -39,6 +39,7 @@ const ManageSavings = () => {
       const res = await api.get('/admin/users');
       setUsers(res.data);
     } catch (err) {
+      console.log(err);
       // Non-critical
     }
   }, []);

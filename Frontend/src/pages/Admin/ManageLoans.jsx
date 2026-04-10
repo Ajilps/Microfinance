@@ -5,7 +5,7 @@ import moment from 'moment';
 import { useForm } from 'react-hook-form';
 import Pagination from '../../components/Pagination';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 12;
 
 const ManageLoans = () => {
   const [users, setUsers] = useState([]);
