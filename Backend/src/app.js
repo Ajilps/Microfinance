@@ -22,8 +22,8 @@ app.use(cors({ origin: "*" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// ✅ FINAL FIX (no more path issues)
 const distPath = path.join(process.cwd(), "dist");
+console.log(distPath);
 // Serve frontend
 app.use(express.static(distPath));
 
