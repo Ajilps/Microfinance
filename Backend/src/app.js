@@ -22,14 +22,14 @@ app.use(cors({ origin: "*" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// API Routes
-app.use("/api/users", userRoutes);
-app.use("/api/admin", adminRoutes);
-
 // ✅ FINAL FIX (no more path issues)
 const distPath = path.join(process.cwd(), "dist");
 // Serve frontend
 app.use(express.static(distPath));
+
+// API Routes
+app.use("/api/users", userRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Handle React routes
 app.get("*", (req, res) => {
