@@ -12,7 +12,7 @@ const generateToken = (id) => {
 // @route   GET /api/admin/users
 // @access  Private/Admin
 const getAllUsers = async (req, res) => {
-  const users = await User.find({ role: "user" });
+  const users = await User.find({ role: "user" }).sort({ email: 1 });
   res.json(users);
 };
 

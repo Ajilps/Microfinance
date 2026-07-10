@@ -572,6 +572,7 @@ const ManageLoans = () => {
                             </tr>
                           </thead>
                           <tbody>
+                           
                             {paginatedTx.map(tx => (
                               <tr key={tx._id}>
                                 <td>{moment(tx.date).format('MMM Do YYYY')}</td>

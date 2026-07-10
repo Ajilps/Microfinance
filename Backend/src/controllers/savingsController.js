@@ -87,7 +87,7 @@ const getUserSavingsDetail = async (req, res) => {
   if (!user) return res.status(404).json({ message: "User not found" });
 
   const payments = await SavingsPayment.find({ user: userId })
-    .sort({ weekStartDate: 1 })
+    .sort({ weekStartDate: -1 })
     .populate("recordedBy", "name");
 
   const totalSavings = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -96,7 +96,7 @@ const getUserSavingsDetail = async (req, res) => {
   // Check if current week is paid
   const currentWeekStart = getWeekStart(new Date());
   const currentWeekPaid = payments.some(
-    (p) => p.weekStartDate.getTime() === currentWeekStart.getTime()
+    (p) => p.weekStartDate.getTime() === currentWeekStart.getTime(),
   );
 
   res.json({
@@ -166,7 +166,7 @@ const getMySavingsSummary = async (req, res) => {
 
   const currentWeekStart = getWeekStart(new Date());
   const currentWeekPaid = payments.some(
-    (p) => p.weekStartDate.getTime() === currentWeekStart.getTime()
+    (p) => p.weekStartDate.getTime() === currentWeekStart.getTime(),
   );
 
   res.json({
@@ -195,7 +195,10 @@ const deleteSavingsPayment = async (req, res) => {
   }
 
   // 2. Verify the payment exists and belongs to this user
-  const payment = await SavingsPayment.findOne({ _id: paymentId, user: userId });
+  const payment = await SavingsPayment.findOne({
+    _id: paymentId,
+    user: userId,
+  });
   if (!payment) {
     return res.status(404).json({ message: "Savings payment not found" });
   }
@@ -225,16 +228,16 @@ const deleteSavingsPayment = async (req, res) => {
   // 6. Write audit log (non-blocking)
   try {
     await AuditLog.create({
-      adminId:   req.user._id,
+      adminId: req.user._id,
       adminName: req.user.name || "",
-      action:    "DELETE_SAVINGS_PAYMENT",
+      action: "DELETE_SAVINGS_PAYMENT",
       userId,
       deletedRecordId: paymentId,
       deletedRecord: {
-        type:   "savings",
+        type: "savings",
         amount: payment.amount,
-        date:   payment.paidOn,
-        note:   payment.note,
+        date: payment.paidOn,
+        note: payment.note,
       },
       summaryBefore,
       summaryAfter,

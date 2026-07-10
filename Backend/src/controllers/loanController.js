@@ -231,7 +231,7 @@ const addLoanTransaction = async (req, res) => {
 
   const transaction = await LoanTransaction.create(transactionData);
 
-res.status(201).json(transaction);
+  res.status(201).json(transaction);
 };
 
 // ─── ADMIN: Record a single interest period (idempotent) ──────────────────────
@@ -354,15 +354,21 @@ const applyUnrecordedInterest = async (req, res) => {
   }
 
   // Fetch the live ledger — never trust the amount sent from the browser
-  const transactions = await LoanTransaction.find({ user: userId }).sort({ date: 1 });
+  const transactions = await LoanTransaction.find({ user: userId }).sort({
+    date: 1,
+  });
 
   if (transactions.length === 0) {
-    return res.status(400).json({ message: "No transactions found for this user" });
+    return res
+      .status(400)
+      .json({ message: "No transactions found for this user" });
   }
 
   const targetDate = toDate ? new Date(toDate) : new Date();
   const periods = calculateInterestPeriods(transactions, targetDate);
-  const unrecordedPeriods = periods.filter((p) => !p.alreadyRecorded && !p.isPartial);
+  const unrecordedPeriods = periods.filter(
+    (p) => !p.alreadyRecorded && !p.isPartial,
+  );
 
   if (unrecordedPeriods.length === 0) {
     // Nothing to apply — fetch fresh summary and return it
@@ -409,7 +415,9 @@ const applyUnrecordedInterest = async (req, res) => {
   }
 
   // Recompute summary from the now-updated ledger
-  const updatedTransactions = await LoanTransaction.find({ user: userId }).sort({ date: 1 });
+  const updatedTransactions = await LoanTransaction.find({ user: userId }).sort(
+    { date: 1 },
+  );
   const summary = computeLoanSummary(updatedTransactions);
 
   return res.json({
@@ -480,7 +488,7 @@ const getUserLoanDetail = async (req, res) => {
   if (!user) return res.status(404).json({ message: "User not found" });
 
   const transactions = await LoanTransaction.find({ user: userId })
-    .sort({ date: 1 })
+    .sort({ date: -1 })
     .populate("recordedBy", "name");
 
   const summary = computeLoanSummary(transactions);
@@ -592,36 +600,43 @@ const deleteLoanTransaction = async (req, res) => {
   }
 
   // 2. Verify the transaction exists and belongs to this user
-  const tx = await LoanTransaction.findOne({ _id: transactionId, user: userId });
+  const tx = await LoanTransaction.findOne({
+    _id: transactionId,
+    user: userId,
+  });
   if (!tx) {
     return res.status(404).json({ message: "Transaction not found" });
   }
 
   // 3. Compute summary BEFORE deletion for the audit log
-  const allTxBefore = await LoanTransaction.find({ user: userId }).sort({ date: 1 });
+  const allTxBefore = await LoanTransaction.find({ user: userId }).sort({
+    date: 1,
+  });
   const summaryBefore = computeLoanSummary(allTxBefore);
 
   // 4. Hard-delete the transaction
   await LoanTransaction.deleteOne({ _id: transactionId });
 
   // 5. Recompute summary from remaining transactions (single deterministic pass)
-  const allTxAfter = await LoanTransaction.find({ user: userId }).sort({ date: 1 });
+  const allTxAfter = await LoanTransaction.find({ user: userId }).sort({
+    date: 1,
+  });
   const summaryAfter = computeLoanSummary(allTxAfter);
 
   // 6. Write audit log (non-blocking — a failure here must not undo the deletion)
   try {
     await AuditLog.create({
-      adminId:   req.user._id,
+      adminId: req.user._id,
       adminName: req.user.name || "",
-      action:    "DELETE_LOAN_TRANSACTION",
+      action: "DELETE_LOAN_TRANSACTION",
       userId,
       deletedRecordId: transactionId,
       deletedRecord: {
-        type:           tx.type,
-        amount:         tx.amount,
-        date:           tx.date,
-        note:           tx.note,
-        paymentTarget:  tx.paymentTarget,
+        type: tx.type,
+        amount: tx.amount,
+        date: tx.date,
+        note: tx.note,
+        paymentTarget: tx.paymentTarget,
         interestPeriod: tx.interestPeriod,
       },
       summaryBefore,

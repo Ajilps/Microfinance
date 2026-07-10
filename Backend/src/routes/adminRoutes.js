@@ -15,6 +15,7 @@ import {
   downloadMonthlyCSV,
   recordFinePayment,
   getUserFineReport,
+  getAllTimeAttendanceSummary,
 } from "../controllers/attendanceController.js";
 import {
   addLoanTransaction,
@@ -52,6 +53,7 @@ router.post("/attendance", adminProtect, markBulkAttendance);
 router.get("/attendance", adminProtect, getAttendanceByDate);
 // GET /api/admin/attendance/monthly?month=3&year=2026
 router.get("/attendance/monthly", adminProtect, getMonthlyAttendanceSummary);
+router.get("/attendance/all", adminProtect, getAllTimeAttendanceSummary);
 // GET /api/admin/attendance/download?month=3&year=2026
 router.get("/attendance/download", adminProtect, downloadMonthlyCSV);
 
@@ -77,9 +79,17 @@ router.post("/loans/:userId/transaction", adminProtect, addLoanTransaction);
 // POST   /api/admin/loans/:userId/interest — record a 4-week interest entry
 router.post("/loans/:userId/interest", adminProtect, recordInterestEntry);
 // POST   /api/admin/loans/:userId/interest/apply-unrecorded — apply unrecorded interest to balance
-router.post("/loans/:userId/interest/apply-unrecorded", adminProtect, applyUnrecordedInterest);
+router.post(
+  "/loans/:userId/interest/apply-unrecorded",
+  adminProtect,
+  applyUnrecordedInterest,
+);
 // DELETE /api/admin/loans/:userId/transaction/:transactionId — hard-delete a loan transaction
-router.delete("/loans/:userId/transaction/:transactionId", adminProtect, deleteLoanTransaction);
+router.delete(
+  "/loans/:userId/transaction/:transactionId",
+  adminProtect,
+  deleteLoanTransaction,
+);
 
 // ─── Savings Management ───────────────────────────────────────────────────────
 // POST   /api/admin/savings/:userId/payment — record weekly savings payment
@@ -91,7 +101,11 @@ router.put(
   updateSavingsPayment,
 );
 // DELETE /api/admin/savings/:userId/payment/:paymentId — hard-delete a savings payment
-router.delete("/savings/:userId/payment/:paymentId", adminProtect, deleteSavingsPayment);
+router.delete(
+  "/savings/:userId/payment/:paymentId",
+  adminProtect,
+  deleteSavingsPayment,
+);
 // GET    /api/admin/savings/:userId — full savings history + interest for a user
 router.get("/savings/:userId", adminProtect, getUserSavingsDetail);
 // GET    /api/admin/savings — all users' savings overview

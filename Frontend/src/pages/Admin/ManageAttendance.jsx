@@ -31,6 +31,10 @@ const ManageAttendance = () => {
   const [monthlyReport, setMonthlyReport] = useState([]);
   const [loadingReport, setLoadingReport] = useState(false);
 
+  // ---- all time fines 
+  const [allReport, setAllReport] = useState([]);
+ 
+
   // ─── Fine form state ──────────────────────────────────────────────────────────
   const [fineUserId, setFineUserId] = useState('');
   const [fineAmount, setFineAmount] = useState('');
@@ -50,7 +54,7 @@ const ManageAttendance = () => {
       const res = await api.get('/admin/users');
       const memberUsers = res.data; // already filtered to role: "user" by backend
       setUsers(memberUsers);
-      // Initialise records object
+      // Initialize records object
       const init = {};
       memberUsers.forEach(u => { init[u._id] = { status: 'present', note: '' }; });
       setRecords(init);
@@ -75,10 +79,27 @@ const ManageAttendance = () => {
     }
   }, []);
 
+    // ─── Fetch All Time report ─────────────────────────────────────────────────────
+  const fetchAllReport = useCallback(async () => {
+    setLoadingReport(true);
+    setAllReport([]);
+    try {
+      const res = await api.get(`/admin/attendance/all`);
+      setAllReport(res.data.summary || []);
+    } catch (err) {
+      toast.error('Failed to load monthly report: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoadingReport(false);
+    }
+  }, []);
   // ─── Effects ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (activeTab === 'mark') {
       fetchUsers();
+    }else if(activeTab === 'all'){
+      fetchAllReport();
+      if (activeTab === 'fines' && users.length === 0) fetchUsers();
+
     } else {
       fetchMonthlyReport(month, year);
       if (activeTab === 'fines' && users.length === 0) fetchUsers();
@@ -131,7 +152,7 @@ const ManageAttendance = () => {
   // ─── CSV Download ─────────────────────────────────────────────────────────────
   const downloadCSV = () => {
     const token = localStorage.getItem('token');
-    const base = import.meta.env.VITE_API_URL || 'https://microfinance-u92z.onrender.com/api';
+    const base = import.meta.env.VITE_API_URL || 'https://microfinance-edb4.onrender.com/api';
     window.open(`${base}/admin/attendance/download?month=${month}&year=${year}&token=${token}`, '_blank');
   };
 
@@ -178,6 +199,7 @@ const ManageAttendance = () => {
   // Paginated slices
   const paginatedUsers = users.slice((markPage - 1) * ITEMS_PER_PAGE, markPage * ITEMS_PER_PAGE);
   const paginatedMonthly = monthlyReport.slice((monthlyPage - 1) * ITEMS_PER_PAGE, monthlyPage * ITEMS_PER_PAGE);
+  const paginatedAll = allReport.slice((monthlyPage - 1) * ITEMS_PER_PAGE, monthlyPage * ITEMS_PER_PAGE);
   const finesData = monthlyReport.filter(r => r.fineOwed > 0 || r.totalPaid > 0);
   const paginatedFines = finesData.slice((finesPage - 1) * ITEMS_PER_PAGE, finesPage * ITEMS_PER_PAGE);
 
@@ -189,6 +211,7 @@ const ManageAttendance = () => {
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button style={tabStyle('mark')} onClick={() => setActiveTab('mark')}>📋 Mark Weekly</button>
           <button style={tabStyle('monthly')} onClick={() => setActiveTab('monthly')}>📅 Monthly Report</button>
+          <button style={tabStyle('all')} onClick={() => setActiveTab('all')}>📅 All time Report</button>
           <button style={{ ...tabStyle('fines'), background: activeTab === 'fines' ? '#ef4444' : '#e2e8f0', color: activeTab === 'fines' ? 'white' : '#475569' }}
             onClick={() => setActiveTab('fines')}>💸 Manage Fines</button>
         </div>
@@ -371,7 +394,87 @@ const ManageAttendance = () => {
           )}
         </div>
       )}
+  {/* ─── ALL time REPORT TAB ──────────────────────────────────────────────────── */}
+      {activeTab === 'all' && (
+        <div className="card">
+          <div className="flex-between" style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid #e2e8f0' }}>
+            {/* <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <select
+                value={month}
+                onChange={e => { setMonth(Number(e.target.value)); setMonthlyPage(1); }}
+                className="input-field"
+                style={{ padding: '0.5rem' }}
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <option key={m} value={m}>{moment().month(m - 1).format('MMMM')}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                value={year}
+                onChange={e => { setYear(Number(e.target.value)); setMonthlyPage(1); }}
+                className="input-field"
+                style={{ width: '90px', padding: '0.5rem' }}
+              />
+            </div> */}
+            {/* <button
+              className="btn"
+              style={{ background: '#1c2833', color: 'white' }}
+              onClick={downloadCSV}
+            >
+              ⬇ Download CSV
+            </button> */}
+          </div>
 
+          {loadingReport ? <div className="spinner"></div> : monthlyReport.length === 0 ? (
+            <p style={{ color: '#64748b' }}>No attendance records found for {moment().month(month - 1).format('MMMM')} {year}.</p>
+          ) : (
+            <>
+              <div className="table-scroll">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Member</th>
+                      <th>Weeks</th>
+                      <th>Present</th>
+                      <th>Absent</th>
+                      <th>Late / Leave</th>
+                      <th>Fine Owed</th>
+                      <th>Fine Paid</th>
+                      <th>Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedAll.map(r => (
+                      <tr key={r.userId}>
+                        <td>
+                          <div style={{ fontWeight: 500 }}>{r.name}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{r.email}</div>
+                        </td>
+                        <td>{r.totalWeeks}</td>
+                        <td style={{ color: 'var(--secondary-color)', fontWeight: 600 }}>{r.present}</td>
+                        <td style={{ color: r.absent > 0 ? 'var(--danger)' : 'inherit' }}>{r.absent}</td>
+                        <td>{r.late} / {r.leave}</td>
+                        <td>₹{(r.fineOwed || 0).toFixed(2)}</td>
+                        <td style={{ color: 'var(--primary-color)' }}>₹{(r.totalPaid || 0).toFixed(2)}</td>
+                        <td style={{ color: r.balance > 0 ? 'var(--danger)' : '#10b981', fontWeight: 600 }}>
+                          ₹{(r.balance || 0).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination
+                currentPage={monthlyPage}
+                totalItems={monthlyReport.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setMonthlyPage}
+              />
+            </>
+          )}
+        </div>
+      )}
       {/* ─── FINES TAB ───────────────────────────────────────────────────────────── */}
       {activeTab === 'fines' && (
         <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
