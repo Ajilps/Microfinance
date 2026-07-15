@@ -4,5 +4,5 @@ services:
     ports:
       - "4000:4000"
     env_file:
-      - ./backend/.env
+      - ./Backend/.env
     restart: unless-stopped

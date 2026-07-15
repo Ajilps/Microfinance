@@ -1,9 +1,9 @@
 FROM node:26 AS build
 WORKDIR /app 
-COPY ./frontend/package*.json .
+COPY ./Frontend/package*.json .
 RUN npm ci
 
-COPY ./frontend/ .
+COPY ./Frontend/ .
 
 RUN npm run build 
 
@@ -12,12 +12,12 @@ RUN npm run build
 FROM node:26-alpine AS server
 WORKDIR /app
 
-COPY ./backend/package*.json .
+COPY ./Backend/package*.json .
 
 RUN npm ci --omit=dev
 
 
-COPY ./backend .
+COPY ./Backend .
 COPY --from=build /app/dist /app/dist
 
 CMD [ "node","./src/server.js"]
