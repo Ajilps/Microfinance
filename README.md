@@ -39,7 +39,7 @@ A full-stack web application for managing microfinance operations, including use
 - **Attendance Tracking** — Log and review member attendance with fine management for absences.
 - **Weekly Transactions** — Review Monday–Sunday cash in, cash out, and non-cash accrued charges with separate weekly and category totals.
 - **Income & Expenses** — Add, edit, filter, and total additional income and business expenses with mandatory transaction dates and sources/reasons.
-- **Profit & Distribution** — Review accrued and cash profit through any date, preview savings-weighted member shares, and record immutable payout histories.
+- **Profit & Distribution** — Review accrued and cash profit, prevent duplicate payouts, allocate by savings, safely reverse allocations, and permanently lock confirmed payouts against reversal.
 - **Reports** — Export data to CSV for offline analysis.
 - **Automated Interest** — A background cron job applies 1 % monthly interest (every 28 days) to outstanding loan balances automatically.
 

@@ -1138,15 +1138,45 @@ distributable cash profit. The response includes:
 ```
 
 The server recalculates availability and member shares before saving. A
-distribution is stored as an immutable payout snapshot and does not change
-weekly savings balances.
+calculation fingerprint prevents the same active allocation from being
+recorded twice, including simultaneous duplicate requests. A distribution is
+stored as a payout snapshot and does not change weekly savings balances.
 
 ### Distribution History
 
 **GET** `/api/admin/finance/profit/distributions`
 
 Returns recorded distributions with member savings, percentages, allocated
-amounts, and the admin who recorded each payout.
+amounts, status, and the admin who recorded each payout. Reversed allocations
+remain in the history for auditing but are excluded from previously distributed
+profit totals.
+
+### Un-allocate Profit Distribution
+
+**PATCH** `/api/admin/finance/profit/distributions/:id/unallocate`
+
+```json
+{
+  "reason": "Recorded against the wrong payout date"
+}
+```
+
+Marks an active distribution as reversed. Its amount becomes available for a
+future allocation again. The original member allocation snapshot, reversing
+admin, timestamp, and optional reason remain in distribution history.
+
+Un-allocation is rejected when it has been permanently disabled for the
+distribution.
+
+### Permanently Disable Un-allocation
+
+**PATCH** `/api/admin/finance/profit/distributions/:id/lock-unallocate`
+
+Marks an active distribution as final and permanently disables its
+un-allocation action. This is intended for use after the payout has been
+confirmed. The distribution remains deducted from available profit, and the
+locking administrator and timestamp are retained in history. This action
+cannot be undone.
 
 ---
 

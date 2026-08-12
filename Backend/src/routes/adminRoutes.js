@@ -50,6 +50,8 @@ import {
   createProfitDistribution,
   getProfitDistributions,
   getProfitOverview,
+  lockProfitDistributionUnallocation,
+  unallocateProfitDistribution,
 } from "../controllers/profitController.js";
 import { adminProtect } from "../middleware/adminMiddleware.js";
 import asyncHandler from "../middleware/asyncHandler.js";
@@ -158,6 +160,16 @@ router.post(
   "/finance/profit/distributions",
   adminProtect,
   asyncHandler(createProfitDistribution),
+);
+router.patch(
+  "/finance/profit/distributions/:id/unallocate",
+  adminProtect,
+  asyncHandler(unallocateProfitDistribution),
+);
+router.patch(
+  "/finance/profit/distributions/:id/lock-unallocate",
+  adminProtect,
+  asyncHandler(lockProfitDistributionUnallocation),
 );
 
 // ─── Downloadable Reports ────────────────────────────────────────────────────

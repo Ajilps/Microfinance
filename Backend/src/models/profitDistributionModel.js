@@ -31,6 +31,13 @@ const profitDistributionSchema = new mongoose.Schema(
       required: true,
       min: [0.01, "Distribution amount must be greater than 0"],
     },
+    // Identifies the exact calculation state used for this payout. The active
+    // partial unique index prevents duplicate submissions while allowing a
+    // reversed allocation to be created again later if needed.
+    calculationKey: {
+      type: String,
+      trim: true,
+    },
     totalSavings: {
       type: Number,
       required: true,
@@ -58,11 +65,56 @@ const profitDistributionSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    status: {
+      type: String,
+      enum: ["active", "reversed"],
+      default: "active",
+      required: true,
+    },
+    reversedAt: {
+      type: Date,
+      default: null,
+    },
+    reversedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    reversalReason: {
+      type: String,
+      trim: true,
+      maxlength: [1000, "Un-allocation reason cannot exceed 1000 characters"],
+      default: "",
+    },
+    unallocationLocked: {
+      type: Boolean,
+      default: false,
+      required: true,
+    },
+    unallocationLockedAt: {
+      type: Date,
+      default: null,
+    },
+    unallocationLockedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
 );
 
 profitDistributionSchema.index({ distributionDate: -1, createdAt: -1 });
 profitDistributionSchema.index({ "allocations.user": 1, distributionDate: -1 });
+profitDistributionSchema.index(
+  { calculationKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      calculationKey: { $type: "string" },
+      status: "active",
+    },
+  },
+);
 
 export default mongoose.model("ProfitDistribution", profitDistributionSchema);

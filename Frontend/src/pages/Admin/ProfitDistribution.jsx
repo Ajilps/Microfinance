@@ -24,6 +24,8 @@ const ProfitDistribution = () => {
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [unallocatingId, setUnallocatingId] = useState(null);
+  const [lockingId, setLockingId] = useState(null);
   const [page, setPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
@@ -116,6 +118,76 @@ const ProfitDistribution = () => {
       );
     } finally {
       setRecording(false);
+    }
+  };
+
+  const unallocateDistribution = async (distribution) => {
+    const result = await Swal.fire({
+      title: 'Un-allocate this profit distribution?',
+      html: `<strong>${money(distribution.amount)}</strong> will be restored to the available profit balance. The original allocation will remain in history as reversed.`,
+      icon: 'warning',
+      input: 'textarea',
+      inputLabel: 'Reason (optional)',
+      inputPlaceholder: 'Why is this allocation being reversed?',
+      inputAttributes: { maxlength: '1000' },
+      showCancelButton: true,
+      confirmButtonText: 'Un-allocate',
+      confirmButtonColor: '#f43f5e',
+      background: '#111827',
+      color: '#f8fafc',
+      preConfirm: (value) => {
+        if ((value || '').trim().length > 1000) {
+          Swal.showValidationMessage('Reason cannot exceed 1000 characters');
+          return false;
+        }
+        return (value || '').trim();
+      },
+    });
+    if (!result.isConfirmed) return;
+
+    setUnallocatingId(distribution._id);
+    try {
+      await api.patch(
+        `/admin/finance/profit/distributions/${distribution._id}/unallocate`,
+        { reason: result.value || '' },
+      );
+      toast.success('Profit allocation reversed');
+      await Promise.all([fetchOverview(), fetchHistory()]);
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || 'Failed to un-allocate profit',
+      );
+    } finally {
+      setUnallocatingId(null);
+    }
+  };
+
+  const lockUnallocation = async (distribution) => {
+    const result = await Swal.fire({
+      title: 'Disable un-allocation permanently?',
+      html: `<strong>${money(distribution.amount)}</strong> will remain distributed and deducted from available profit. This action cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Disable Un-allocation',
+      confirmButtonColor: '#f59e0b',
+      background: '#111827',
+      color: '#f8fafc',
+    });
+    if (!result.isConfirmed) return;
+
+    setLockingId(distribution._id);
+    try {
+      await api.patch(
+        `/admin/finance/profit/distributions/${distribution._id}/lock-unallocate`,
+      );
+      toast.success('Un-allocation permanently disabled');
+      await fetchHistory();
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || 'Failed to disable un-allocation',
+      );
+    } finally {
+      setLockingId(null);
     }
   };
 
@@ -364,49 +436,114 @@ const ProfitDistribution = () => {
         ) : (
           <>
             <div className="table-scroll report-table-scroll" tabIndex="0" aria-label="Scrollable profit distribution history">
-              <table className="data-table" style={{ minWidth: '850px' }}>
+              <table className="data-table" style={{ minWidth: '1050px' }}>
                 <thead>
                   <tr>
                     <th>Date</th>
                     <th>Amount</th>
+                    <th>Status</th>
                     <th>Total Savings</th>
                     <th>Members</th>
                     <th>Recorded By</th>
                     <th>Details</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedHistory.map((distribution) => (
-                    <tr key={distribution._id}>
-                      <td>{moment.utc(distribution.distributionDate).format('DD MMM YYYY')}</td>
-                      <td style={{ fontWeight: 800, color: 'var(--emerald-400)' }}>{money(distribution.amount)}</td>
-                      <td>{money(distribution.totalSavings)}</td>
-                      <td>{distribution.allocations?.length || 0}</td>
-                      <td>{distribution.recordedBy?.name || 'Unknown'}</td>
-                      <td>
-                        <button
-                          className="btn btn-ghost"
-                          onClick={() =>
-                            setExpandedHistoryId((current) =>
-                              current === distribution._id ? null : distribution._id,
-                            )
-                          }
+                  {paginatedHistory.map((distribution) => {
+                    const isReversed = distribution.status === 'reversed';
+                    const isLocked = distribution.unallocationLocked === true;
+                    return (
+                      <tr key={distribution._id} style={isReversed ? { opacity: 0.72 } : undefined}>
+                        <td>{moment.utc(distribution.distributionDate).format('DD MMM YYYY')}</td>
+                        <td
+                          style={{
+                            fontWeight: 800,
+                            color: isReversed ? 'var(--text-muted)' : 'var(--emerald-400)',
+                            textDecoration: isReversed ? 'line-through' : 'none',
+                          }}
                         >
-                          {expandedHistoryId === distribution._id ? 'Hide' : 'View'}
-                        </button>
-                        {expandedHistoryId === distribution._id && (
-                          <div style={{ marginTop: '0.65rem', minWidth: '240px' }}>
-                            {distribution.allocations.map((allocation) => (
-                              <div key={String(allocation.user)} className="flex-between" style={{ gap: '1rem', padding: '0.25rem 0' }}>
-                                <span>{allocation.name}</span>
-                                <strong>{money(allocation.amount)}</strong>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                          {money(distribution.amount)}
+                        </td>
+                        <td>
+                          <span className={`badge ${isReversed ? 'badge-danger' : isLocked ? 'badge-warning' : 'badge-success'}`}>
+                            {isReversed ? 'Un-allocated' : isLocked ? 'Active · Locked' : 'Active'}
+                          </span>
+                        </td>
+                        <td>{money(distribution.totalSavings)}</td>
+                        <td>{distribution.allocations?.length || 0}</td>
+                        <td>{distribution.recordedBy?.name || 'Unknown'}</td>
+                        <td>
+                          <button
+                            className="btn btn-ghost"
+                            onClick={() =>
+                              setExpandedHistoryId((current) =>
+                                current === distribution._id ? null : distribution._id,
+                              )
+                            }
+                          >
+                            {expandedHistoryId === distribution._id ? 'Hide' : 'View'}
+                          </button>
+                          {expandedHistoryId === distribution._id && (
+                            <div style={{ marginTop: '0.65rem', minWidth: '240px' }}>
+                              {distribution.allocations.map((allocation) => (
+                                <div key={String(allocation.user)} className="flex-between" style={{ gap: '1rem', padding: '0.25rem 0' }}>
+                                  <span>{allocation.name}</span>
+                                  <strong>{money(allocation.amount)}</strong>
+                                </div>
+                              ))}
+                              {isReversed && (
+                                <div style={{ borderTop: '1px solid var(--border)', marginTop: '0.5rem', paddingTop: '0.65rem', color: 'var(--rose-400)' }}>
+                                  <strong>Un-allocated by {distribution.reversedBy?.name || 'Unknown admin'}</strong>
+                                  {distribution.reversedAt && (
+                                    <div>{moment(distribution.reversedAt).format('DD MMM YYYY, hh:mm A')}</div>
+                                  )}
+                                  {distribution.reversalReason && <div>{distribution.reversalReason}</div>}
+                                </div>
+                              )}
+                              {isLocked && (
+                                <div style={{ borderTop: '1px solid var(--border)', marginTop: '0.5rem', paddingTop: '0.65rem', color: 'var(--amber-400)' }}>
+                                  <strong>Un-allocation disabled by {distribution.unallocationLockedBy?.name || 'Unknown admin'}</strong>
+                                  {distribution.unallocationLockedAt && (
+                                    <div>{moment(distribution.unallocationLockedAt).format('DD MMM YYYY, hh:mm A')}</div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          {isReversed || isLocked ? (
+                            <button
+                              className="btn btn-danger"
+                              disabled
+                              title={isReversed ? 'This distribution was un-allocated' : 'Un-allocation is permanently disabled'}
+                            >
+                              {isReversed ? 'Un-allocated' : 'Un-allocate Disabled'}
+                            </button>
+                          ) : (
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              <button
+                                className="btn btn-danger"
+                                onClick={() => unallocateDistribution(distribution)}
+                                disabled={unallocatingId === distribution._id || lockingId === distribution._id}
+                              >
+                                {unallocatingId === distribution._id ? 'Un-allocating...' : 'Un-allocate'}
+                              </button>
+                              <button
+                                className="btn btn-secondary"
+                                onClick={() => lockUnallocation(distribution)}
+                                disabled={lockingId === distribution._id || unallocatingId === distribution._id}
+                                title="Permanently disable un-allocation after the payout is confirmed"
+                              >
+                                {lockingId === distribution._id ? 'Disabling...' : 'Disable Un-allocate'}
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

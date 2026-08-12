@@ -4,8 +4,10 @@ import test from "node:test";
 import {
   buildProfitAllocations,
   buildProfitSummary,
+  createDistributionCalculationKey,
   getAsOfRange,
 } from "../src/controllers/profitController.js";
+import ProfitDistribution from "../src/models/profitDistributionModel.js";
 
 test("profit summary separates accrued profit from distributable cash profit", () => {
   const summary = buildProfitSummary({
@@ -95,6 +97,67 @@ test("members without savings do not receive a profit allocation", () => {
   assert.equal(result.allocations.length, 1);
   assert.equal(String(result.allocations[0].userId), "saved");
   assert.equal(result.allocations[0].amount, 25);
+});
+
+test("reversed distributions are restored to available profit", () => {
+  const baseData = {
+    loans: [
+      { type: "interest", amount: 500 },
+      { type: "repayment", paymentTarget: "interest", amount: 500 },
+    ],
+    extras: [],
+    finePayments: [],
+  };
+
+  const active = buildProfitSummary({
+    ...baseData,
+    distributions: [{ amount: 200, status: "active" }],
+  });
+  const reversed = buildProfitSummary({
+    ...baseData,
+    distributions: [{ amount: 200, status: "reversed" }],
+  });
+
+  assert.equal(active.availableToDistribute, 300);
+  assert.equal(reversed.availableToDistribute, 500);
+  assert.equal(reversed.previouslyDistributed, 0);
+});
+
+test("distribution calculation key changes after a recorded payout", () => {
+  const common = {
+    asOfDate: "2026-08-12",
+    amount: 100,
+    allocations: [
+      { userId: "user-1", savingsBalance: 400 },
+      { userId: "user-2", savingsBalance: 600 },
+    ],
+  };
+  const before = createDistributionCalculationKey({
+    ...common,
+    summary: {
+      cashProfit: 500,
+      previouslyDistributed: 0,
+      availableToDistribute: 500,
+    },
+  });
+  const after = createDistributionCalculationKey({
+    ...common,
+    summary: {
+      cashProfit: 500,
+      previouslyDistributed: 100,
+      availableToDistribute: 400,
+    },
+  });
+
+  assert.notEqual(before, after);
+});
+
+test("new profit distributions allow un-allocation until explicitly locked", () => {
+  const distribution = new ProfitDistribution();
+  assert.equal(distribution.status, "active");
+  assert.equal(distribution.unallocationLocked, false);
+  assert.equal(distribution.unallocationLockedAt, null);
+  assert.equal(distribution.unallocationLockedBy, null);
 });
 
 test("as-of date validation rejects future dates", () => {

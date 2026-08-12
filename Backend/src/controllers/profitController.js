@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import ExtraTransaction from "../models/extraTransactionModel.js";
 import FinePayment from "../models/finePaymentModel.js";
 import LoanTransaction from "../models/loanModel.js";
@@ -8,6 +10,29 @@ import { computeLoanSummary } from "./loanController.js";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
+
+const createDistributionCalculationKey = ({
+  asOfDate,
+  summary,
+  amount,
+  allocations,
+}) =>
+  createHash("sha256")
+    .update(
+      JSON.stringify({
+        version: 1,
+        asOfDate,
+        amount: roundMoney(amount),
+        cashProfit: summary.cashProfit,
+        previouslyDistributed: summary.previouslyDistributed,
+        availableToDistribute: summary.availableToDistribute,
+        savings: allocations.map((allocation) => [
+          String(allocation.userId),
+          allocation.savingsBalance,
+        ]),
+      }),
+    )
+    .digest("hex");
 
 const getAsOfRange = (value) => {
   if (!value || typeof value !== "string" || !DATE_PATTERN.test(value)) {
@@ -40,10 +65,9 @@ const buildProfitSummary = ({
   const otherExpenses = extras
     .filter((entry) => entry.type === "expense")
     .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-  const previouslyDistributed = distributions.reduce(
-    (sum, item) => sum + Number(item.amount || 0),
-    0,
-  );
+  const previouslyDistributed = distributions
+    .filter((item) => item.status !== "reversed")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const attendanceFineIncome = finePayments.reduce(
     (sum, payment) => sum + Number(payment.amount || 0),
     0,
@@ -192,10 +216,17 @@ const loadProfitData = async (asOfDate, requestedAmount) => {
     savingsPayments,
     amount: roundMoney(parsedAmount),
   });
+  const calculationKey = createDistributionCalculationKey({
+    asOfDate: range.value,
+    summary,
+    amount: parsedAmount,
+    allocations: allocation.allocations,
+  });
   return {
     asOfDate: range.value,
     summary,
     distributionAmount: roundMoney(parsedAmount),
+    calculationKey,
     ...allocation,
   };
 };
@@ -230,6 +261,7 @@ const createProfitDistribution = async (req, res) => {
     const selectedDayEnd = new Date(`${data.asOfDate}T23:59:59.999Z`);
     const laterDistribution = await ProfitDistribution.findOne({
       distributionDate: { $gt: selectedDayEnd },
+      status: { $ne: "reversed" },
     }).select("_id");
     if (laterDistribution) {
       return res.status(409).json({
@@ -242,6 +274,7 @@ const createProfitDistribution = async (req, res) => {
       asOfDate: new Date(`${data.asOfDate}T00:00:00.000Z`),
       distributionDate: new Date(`${data.asOfDate}T12:00:00.000Z`),
       amount: data.distributionAmount,
+      calculationKey: data.calculationKey,
       totalSavings: data.totalSavings,
       allocations: data.allocations.map((allocation) => ({
         user: allocation.userId,
@@ -258,23 +291,120 @@ const createProfitDistribution = async (req, res) => {
     await distribution.populate("recordedBy", "name");
     return res.status(201).json(distribution);
   } catch (error) {
+    if (error?.code === 11000 && error?.keyPattern?.calculationKey) {
+      return res.status(409).json({
+        message:
+          "This profit allocation has already been recorded. Refresh the totals before creating another distribution.",
+      });
+    }
     return res.status(400).json({ message: error.message });
   }
+};
+
+const unallocateProfitDistribution = async (req, res) => {
+  const reason =
+    typeof req.body.reason === "string" ? req.body.reason.trim() : "";
+  if (reason.length > 1000) {
+    return res.status(400).json({
+      message: "Un-allocation reason cannot exceed 1000 characters",
+    });
+  }
+
+  const distribution = await ProfitDistribution.findOneAndUpdate(
+    {
+      _id: req.params.id,
+      status: { $ne: "reversed" },
+      unallocationLocked: { $ne: true },
+    },
+    {
+      $set: {
+        status: "reversed",
+        reversedAt: new Date(),
+        reversedBy: req.user._id,
+        reversalReason: reason,
+      },
+    },
+    { new: true, runValidators: true },
+  ).populate([
+    { path: "recordedBy", select: "name" },
+    { path: "reversedBy", select: "name" },
+  ]);
+
+  if (distribution) {
+    return res.json(distribution);
+  }
+
+  const existing = await ProfitDistribution.findById(req.params.id).select(
+    "status unallocationLocked",
+  );
+  if (!existing) {
+    return res.status(404).json({ message: "Profit distribution not found" });
+  }
+  return res.status(409).json({
+    message: existing.unallocationLocked
+      ? "Un-allocation has been permanently disabled for this distribution"
+      : "This profit distribution has already been un-allocated",
+  });
+};
+
+const lockProfitDistributionUnallocation = async (req, res) => {
+  const distribution = await ProfitDistribution.findOneAndUpdate(
+    {
+      _id: req.params.id,
+      status: { $ne: "reversed" },
+      unallocationLocked: { $ne: true },
+    },
+    {
+      $set: {
+        unallocationLocked: true,
+        unallocationLockedAt: new Date(),
+        unallocationLockedBy: req.user._id,
+      },
+    },
+    { new: true, runValidators: true },
+  ).populate([
+    { path: "recordedBy", select: "name" },
+    { path: "unallocationLockedBy", select: "name" },
+  ]);
+
+  if (distribution) {
+    return res.json(distribution);
+  }
+
+  const existing = await ProfitDistribution.findById(req.params.id).select(
+    "status unallocationLocked",
+  );
+  if (!existing) {
+    return res.status(404).json({ message: "Profit distribution not found" });
+  }
+  return res.status(409).json({
+    message:
+      existing.status === "reversed"
+        ? "An un-allocated distribution cannot be locked"
+        : "Un-allocation is already disabled for this distribution",
+  });
 };
 
 const getProfitDistributions = async (req, res) => {
   const distributions = await ProfitDistribution.find()
     .sort({ distributionDate: -1, createdAt: -1 })
-    .populate("recordedBy", "name");
+    .populate([
+      { path: "recordedBy", select: "name" },
+      { path: "reversedBy", select: "name" },
+      { path: "unallocationLockedBy", select: "name" },
+    ]);
   return res.json(distributions);
 };
 
 export {
   buildProfitAllocations,
   buildProfitSummary,
+  createDistributionCalculationKey,
   createProfitDistribution,
   getAsOfRange,
   getProfitDistributions,
   getProfitOverview,
   loadProfitData,
+  lockProfitDistributionUnallocation,
+  unallocateProfitDistribution,
 };
