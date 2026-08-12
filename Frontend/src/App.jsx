@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -16,23 +16,19 @@ import ProtectedRoute from './routes/ProtectedRoute';
 import AdminRoute from './routes/AdminRoute';
 import GuestRoute from './routes/GuestRoute';     // ← new: blocks login/register when logged in
 
-// Pages - Public
-import Login from './pages/Public/Login';
-import Register from './pages/Public/Register';
-
-// Pages - User
-import UserDashboard from './pages/User/Dashboard';
-import MyLoans from './pages/User/MyLoans';
-import MySavings from './pages/User/MySavings';
-import MyAttendance from './pages/User/MyAttendance';
-
-// Pages - Admin
-import AdminDashboard from './pages/Admin/Dashboard';
-import ManageUsers from './pages/Admin/ManageUsers';
-import ManageLoans from './pages/Admin/ManageLoans';
-import ManageSavings from './pages/Admin/ManageSavings';
-import ManageAttendance from './pages/Admin/ManageAttendance';
-import ManageReports from './pages/Admin/ManageReports';
+// Route-level code splitting keeps the initial login bundle small.
+const Login = lazy(() => import('./pages/Public/Login'));
+const Register = lazy(() => import('./pages/Public/Register'));
+const UserDashboard = lazy(() => import('./pages/User/Dashboard'));
+const MyLoans = lazy(() => import('./pages/User/MyLoans'));
+const MySavings = lazy(() => import('./pages/User/MySavings'));
+const MyAttendance = lazy(() => import('./pages/User/MyAttendance'));
+const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'));
+const ManageUsers = lazy(() => import('./pages/Admin/ManageUsers'));
+const ManageLoans = lazy(() => import('./pages/Admin/ManageLoans'));
+const ManageSavings = lazy(() => import('./pages/Admin/ManageSavings'));
+const ManageAttendance = lazy(() => import('./pages/Admin/ManageAttendance'));
+const ManageReports = lazy(() => import('./pages/Admin/ManageReports'));
 
 const App = () => {
   return (
@@ -46,7 +42,8 @@ const App = () => {
           closeOnClick
           pauseOnHover
         />
-        <Routes>
+        <Suspense fallback={<div className="spinner" aria-label="Loading page" />}>
+          <Routes>
           {/* ── Public / Guest Routes ─────────────────────────────────────────
               GuestRoute prevents logged-in users from seeing login/register.
               If already authenticated, they are redirected to their dashboard.
@@ -95,7 +92,8 @@ const App = () => {
               </div>
             }
           />
-        </Routes>
+          </Routes>
+        </Suspense>
       </Router>
     </AuthProvider>
   );

@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
+import deleteUserData from "../utils/deleteUserData.js";
 
 // Helper
 const generateToken = (id) => {
@@ -10,7 +11,7 @@ const generateToken = (id) => {
 // @route   POST /api/users/register
 // @access  Public
 const registerUser = async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
     return res
@@ -25,7 +26,8 @@ const registerUser = async (req, res) => {
       .json({ message: "User with this email already exists" });
   }
 
-  const user = await User.create({ name, email, password, role });
+  // Public registration must never accept a privileged role from the client.
+  const user = await User.create({ name, email, password, role: "user" });
   const token = generateToken(user._id);
 
   res.status(201).json({
@@ -76,6 +78,10 @@ const getUsers = async (req, res) => {
 // @route   GET /api/users/:id
 // @access  Private
 const getUserById = async (req, res) => {
+  if (String(req.user._id) !== req.params.id) {
+    return res.status(403).json({ message: "You can only view your own account" });
+  }
+
   const user = await User.findById(req.params.id);
   if (!user) {
     return res.status(404).json({ message: "User not found" });
@@ -87,16 +93,19 @@ const getUserById = async (req, res) => {
 // @route   PUT /api/users/:id
 // @access  Private
 const updateUser = async (req, res) => {
+  if (String(req.user._id) !== req.params.id) {
+    return res.status(403).json({ message: "You can only update your own account" });
+  }
+
   const user = await User.findById(req.params.id);
   if (!user) {
     return res.status(404).json({ message: "User not found" });
   }
 
-  const { name, email, password, role } = req.body;
+  const { name, email, password } = req.body;
   if (name) user.name = name;
   if (email) user.email = email;
   if (password) user.password = password;
-  if (role) user.role = role;
 
   const updated = await user.save();
   res.json({
@@ -111,10 +120,17 @@ const updateUser = async (req, res) => {
 // @route   DELETE /api/users/:id
 // @access  Private
 const deleteUser = async (req, res) => {
-  const user = await User.findByIdAndDelete(req.params.id);
+  if (String(req.user._id) !== req.params.id) {
+    return res.status(403).json({ message: "You can only delete your own account" });
+  }
+
+  const user = await User.findById(req.params.id);
   if (!user) {
     return res.status(404).json({ message: "User not found" });
   }
+
+  await deleteUserData(user._id);
+  await user.deleteOne();
   res.json({ message: "User deleted successfully" });
 };
 

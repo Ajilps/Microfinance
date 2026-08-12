@@ -1,19 +1,17 @@
-import { createContext, useState, useEffect } from 'react';
-import api from '../services/api';
-
-export const AuthContext = createContext();
+import { useCallback, useState, useEffect } from 'react';
+import AuthContext from './auth-context';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(true);
 
-    const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
-  };
+  }, []);
   // Load user details if a token exists on initial load
   useEffect(() => {
     const loadUser = async () => {
@@ -24,10 +22,6 @@ export const AuthProvider = ({ children }) => {
           const storedUser = localStorage.getItem('user');
           if (storedUser) {
             setUser(JSON.parse(storedUser));
-          } else {
-             // In a complete implementation, fetch from: `/auth/me` or similar
-             // const response = await api.get('/auth/me');
-             // setUser(response.data.user);
           }
         } catch (error) {
           console.error("Failed to load user session", error);
@@ -38,7 +32,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     loadUser();
-  }, [token]);
+  }, [token, logout]);
 
   const login = (userData, authToken) => {
     localStorage.setItem('token', authToken);
@@ -46,9 +40,6 @@ export const AuthProvider = ({ children }) => {
     setToken(authToken);
     setUser(userData);
   };
-
-
-
   return (
     <AuthContext.Provider value={{ user, token, loading, login, logout, isAuthenticated: !!token }}>
       {children}

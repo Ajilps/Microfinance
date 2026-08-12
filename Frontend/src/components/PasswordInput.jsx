@@ -20,7 +20,7 @@ const EyeClosed = () => (
 );
 
 // ─── Password Strength Checker ─────────────────────────────────────────────────
-export const getPasswordStrength = (password) => {
+const getPasswordStrength = (password) => {
   const checks = {
     length: password.length >= 8,
     uppercase: /[A-Z]/.test(password),

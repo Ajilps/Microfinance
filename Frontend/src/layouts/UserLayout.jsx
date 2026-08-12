@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
+import AuthContext from '../context/auth-context';
 import Swal from 'sweetalert2';
 
 const NAV_ITEMS = [

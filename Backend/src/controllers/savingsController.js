@@ -61,16 +61,28 @@ const recordSavingsPayment = async (req, res) => {
 // PUT /api/admin/savings/:userId/payment/:paymentId
 // Body: { amount, paidOn, note }
 const updateSavingsPayment = async (req, res) => {
-  const { paymentId } = req.params;
+  const { userId, paymentId } = req.params;
   const { amount, paidOn, note } = req.body;
 
-  const payment = await SavingsPayment.findById(paymentId);
+  const payment = await SavingsPayment.findOne({ _id: paymentId, user: userId });
   if (!payment) {
     return res.status(404).json({ message: "Savings payment not found" });
   }
 
-  if (amount !== undefined) payment.amount = amount;
-  if (paidOn !== undefined) payment.paidOn = new Date(paidOn);
+  if (amount !== undefined) {
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ message: "amount must be greater than 0" });
+    }
+    payment.amount = parsedAmount;
+  }
+  if (paidOn !== undefined) {
+    const parsedPaidOn = new Date(paidOn);
+    if (Number.isNaN(parsedPaidOn.getTime())) {
+      return res.status(400).json({ message: "paidOn must be valid" });
+    }
+    payment.paidOn = parsedPaidOn;
+  }
   if (note !== undefined) payment.note = note;
   payment.recordedBy = req.user._id;
 

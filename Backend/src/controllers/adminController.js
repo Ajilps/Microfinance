@@ -1,7 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
-import LoanTransaction from "../models/loanModel.js";
-import SavingsPayment from "../models/savingsModel.js";
+import deleteUserData from "../utils/deleteUserData.js";
 
 // Helper
 const generateToken = (id) => {
@@ -57,13 +56,13 @@ const updateUser = async (req, res) => {
 const deleteUser = async (req, res) => {
   const userId = req.params.id;
 
-  const user = await User.findByIdAndDelete(userId);
-  if (!user) {
+  const user = await User.findById(userId);
+  if (!user || user.role !== "user") {
     return res.status(404).json({ message: "User not found" });
   }
 
-  await LoanTransaction.deleteMany({ user: userId });
-  await SavingsPayment.deleteMany({ user: userId });
+  await deleteUserData(userId);
+  await user.deleteOne();
 
   res.json({ message: "User deleted successfully" });
 };

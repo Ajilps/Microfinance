@@ -150,10 +150,23 @@ const ManageAttendance = () => {
   };
 
   // ─── CSV Download ─────────────────────────────────────────────────────────────
-  const downloadCSV = () => {
-    const token = localStorage.getItem('token');
-    const base = import.meta.env.VITE_API_URL || 'https://microfinance-edb4.onrender.com/api';
-    window.open(`${base}/admin/attendance/download?month=${month}&year=${year}&token=${token}`, '_blank');
+  const downloadCSV = async () => {
+    try {
+      const response = await api.get('/admin/attendance/download', {
+        params: { month, year },
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `attendance-${month}-${year}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to download attendance report');
+    }
   };
 
   // ─── Fine submit ──────────────────────────────────────────────────────────────

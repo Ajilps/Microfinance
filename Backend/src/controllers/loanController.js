@@ -194,6 +194,21 @@ const addLoanTransaction = async (req, res) => {
       .json({ message: "type, amount, and date are required" });
   }
 
+  if (!["loan", "repayment", "fine"].includes(type)) {
+    return res.status(400).json({
+      message: "type must be 'loan', 'repayment', or 'fine'",
+    });
+  }
+
+  const parsedAmount = Number(amount);
+  const parsedDate = new Date(date);
+  if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    return res.status(400).json({ message: "amount must be greater than 0" });
+  }
+  if (Number.isNaN(parsedDate.getTime())) {
+    return res.status(400).json({ message: "date must be valid" });
+  }
+
   // Validate paymentTarget for repayments
   if (type === "repayment" && !paymentTarget) {
     return res.status(400).json({
@@ -216,11 +231,28 @@ const addLoanTransaction = async (req, res) => {
     return res.status(404).json({ message: "User not found" });
   }
 
+  if (type === "repayment") {
+    const currentTransactions = await LoanTransaction.find({ user: userId }).sort({
+      date: 1,
+    });
+    const currentSummary = computeLoanSummary(currentTransactions);
+    const availableBalance =
+      paymentTarget === "principal"
+        ? currentSummary.principalBalance
+        : currentSummary.interestBalance;
+
+    if (parsedAmount > availableBalance) {
+      return res.status(400).json({
+        message: `Repayment exceeds the ₹${availableBalance.toFixed(2)} ${paymentTarget} balance`,
+      });
+    }
+  }
+
   const transactionData = {
     user: userId,
     type,
-    amount: parseFloat(amount),
-    date: new Date(date),
+    amount: parsedAmount,
+    date: parsedDate,
     note,
     recordedBy: req.user._id,
   };
@@ -250,16 +282,13 @@ const recordInterestEntry = async (req, res) => {
   const {
     periodStart,
     periodEnd,
-    principalBalance,
-    interestRate,
-    interestAmount,
     date,
     note,
   } = req.body;
 
-  if (!periodStart || !periodEnd || !interestAmount || !date) {
+  if (!periodStart || !periodEnd || !date) {
     return res.status(400).json({
-      message: "periodStart, periodEnd, interestAmount, and date are required",
+      message: "periodStart, periodEnd, and date are required",
     });
   }
 
@@ -269,6 +298,34 @@ const recordInterestEntry = async (req, res) => {
   }
 
   const parsedPeriodStart = new Date(periodStart);
+  const parsedPeriodEnd = new Date(periodEnd);
+  const parsedDate = new Date(date);
+  if (
+    [parsedPeriodStart, parsedPeriodEnd, parsedDate].some((value) =>
+      Number.isNaN(value.getTime()),
+    )
+  ) {
+    return res.status(400).json({ message: "Interest dates must be valid" });
+  }
+
+  // Recalculate the period server-side. This prevents altered amounts and
+  // prevents a partial period from permanently occupying a full period's key.
+  const transactions = await LoanTransaction.find({ user: userId }).sort({
+    date: 1,
+  });
+  const calculatedPeriod = calculateInterestPeriods(
+    transactions,
+    parsedPeriodEnd,
+  ).find(
+    (period) =>
+      Math.abs(period.periodStart - parsedPeriodStart) < 24 * 60 * 60 * 1000,
+  );
+
+  if (!calculatedPeriod || calculatedPeriod.isPartial) {
+    return res.status(400).json({
+      message: "Only completed 28-day interest periods can be recorded",
+    });
+  }
 
   // ── Idempotency check ──────────────────────────────────────────────────────
   // The unique index enforces this at DB level too, but an explicit pre-check
@@ -293,17 +350,17 @@ const recordInterestEntry = async (req, res) => {
     const transaction = await LoanTransaction.create({
       user: userId,
       type: "interest",
-      amount: parseFloat(interestAmount),
-      date: new Date(date),
+      amount: calculatedPeriod.interestAmount,
+      date: parsedDate,
       note:
         note ||
-        `Interest: 1% of ₹${parseFloat(principalBalance || 0).toFixed(2)} for period ${parsedPeriodStart.toLocaleDateString()} – ${new Date(periodEnd).toLocaleDateString()}`,
+        `Interest: 1% of ₹${calculatedPeriod.principalBalance.toFixed(2)} for period ${calculatedPeriod.periodStart.toLocaleDateString()} – ${calculatedPeriod.periodEnd.toLocaleDateString()}`,
       recordedBy: req.user._id,
       interestPeriod: {
-        periodStart: parsedPeriodStart,
-        periodEnd: new Date(periodEnd),
-        principalBalance: parseFloat(principalBalance || 0),
-        interestRate: parseFloat(interestRate || 0.01),
+        periodStart: calculatedPeriod.periodStart,
+        periodEnd: calculatedPeriod.periodEnd,
+        principalBalance: calculatedPeriod.principalBalance,
+        interestRate: calculatedPeriod.interestRate,
       },
     });
     return res.status(201).json(transaction);
@@ -450,6 +507,7 @@ const calculateInterestToDate = async (req, res) => {
       totalInterestToDate: 0,
       totalAlreadyRecorded: 0,
       totalUnrecorded: 0,
+      projectedPartialInterest: 0,
     });
   }
 
@@ -464,7 +522,10 @@ const calculateInterestToDate = async (req, res) => {
     .filter((p) => p.alreadyRecorded)
     .reduce((sum, p) => sum + p.interestAmount, 0);
   const totalUnrecorded = periods
-    .filter((p) => !p.alreadyRecorded)
+    .filter((p) => !p.alreadyRecorded && !p.isPartial)
+    .reduce((sum, p) => sum + p.interestAmount, 0);
+  const projectedPartialInterest = periods
+    .filter((p) => !p.alreadyRecorded && p.isPartial)
     .reduce((sum, p) => sum + p.interestAmount, 0);
 
   const summary = computeLoanSummary(transactions);
@@ -476,6 +537,7 @@ const calculateInterestToDate = async (req, res) => {
     totalInterestToDate: parseFloat(totalInterestToDate.toFixed(2)),
     totalAlreadyRecorded: parseFloat(totalAlreadyRecorded.toFixed(2)),
     totalUnrecorded: parseFloat(totalUnrecorded.toFixed(2)),
+    projectedPartialInterest: parseFloat(projectedPartialInterest.toFixed(2)),
   });
 };
 

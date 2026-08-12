@@ -147,6 +147,36 @@ npm install
 
 ### 4. Running in Development
 
+#### Docker Compose (recommended)
+
+The development stack runs MongoDB, restores the supplied development backup
+on the first start, and starts the backend and Vite frontend with live reload:
+
+```bash
+docker compose -f compose.dev.yaml up --build
+```
+
+Open `http://localhost:5173`. The backend is also available directly at
+`http://localhost:4001`, and MongoDB at `mongodb://localhost:27017/test`.
+The different backend port allows this stack to run beside the production-style
+Compose service on port 4000.
+
+The restore is intentionally skipped after the named MongoDB volume contains
+data. To start again from the backup, stop the stack and explicitly remove its
+development volumes before starting it again:
+
+```bash
+docker compose -f compose.dev.yaml down --volumes
+docker compose -f compose.dev.yaml up --build
+```
+
+Host ports can be overridden when needed:
+
+```bash
+BACKEND_PORT=4010 FRONTEND_PORT=5180 MONGODB_PORT=27018 \
+  docker compose -f compose.dev.yaml up --build
+```
+
 Open **two terminals**:
 
 **Terminal 1 — Backend (API server on port 4000)**

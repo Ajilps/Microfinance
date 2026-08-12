@@ -1,0 +1,77 @@
+name: microfinance-dev
+
+services:
+  mongodb:
+    # 8.0.4 is pinned for compatibility with Docker Desktop's Linux 6.19+
+    # kernel; newer MongoDB 8 builds currently refuse to start there.
+    image: mongo:8.0.4
+    restart: unless-stopped
+    ports:
+      - "${MONGODB_PORT:-27017}:27017"
+    volumes:
+      - mongodb_dev_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  mongo-restore:
+    image: mongo:8.0.4
+    restart: "no"
+    environment:
+      MONGO_URI: mongodb://mongodb:27017
+      MONGO_DATABASE: test
+      BACKUP_FILE: /backup/backup_12_8_2026.gz
+    volumes:
+      - ../microfinance-dbbackup/backup_12_8_2026.gz:/backup/backup_12_8_2026.gz:ro
+      - ./docker/mongo/restore.sh:/scripts/restore.sh:ro
+    entrypoint: ["bash", "/scripts/restore.sh"]
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      NODE_ENV: development
+      MONGO_URI: mongodb://mongodb:27017/test
+      JWT_SECRET: local-development-secret-change-before-sharing
+      ADMIN_NAME: Admin
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: Admin@1234
+      INTEREST_CRON_ENABLED: "true"
+      INTEREST_CRON_TIMEZONE: Asia/Kolkata
+    ports:
+      - "${BACKEND_PORT:-4001}:4000"
+    volumes:
+      - ./Backend:/app
+      - backend_node_modules:/app/node_modules
+    depends_on:
+      mongo-restore:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:4000
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./Frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  mongodb_dev_data:
+  backend_node_modules:
+  frontend_node_modules:

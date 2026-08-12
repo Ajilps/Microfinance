@@ -67,10 +67,9 @@ loanTransactionSchema.index({ user: 1, type: 1 });
 
 // ─── Idempotency index ─────────────────────────────────────────────────────────
 // Prevents duplicate interest records for the exact same period.
-// The index is sparse so it only applies to documents where
-// interestPeriod.periodStart is set (i.e. interest-type transactions with
-// a real period). Non-interest transactions and lump-sum entries that have
-// periodStart=null are excluded and remain unconstrained.
+// The partial filter is essential: a compound sparse index would still index
+// every document because `user` is always present, causing normal loan and
+// repayment transactions to collide on a null periodStart.
 //
 // Effect: a second attempt to INSERT an interest transaction for the same
 // (user, periodStart) will throw a duplicate-key error (code 11000), which
@@ -79,10 +78,11 @@ loanTransactionSchema.index(
   { user: 1, "interestPeriod.periodStart": 1 },
   {
     unique: true,
-    sparse: true,   // null / missing periodStart values are NOT indexed → no conflict
+    partialFilterExpression: {
+      type: "interest",
+      "interestPeriod.periodStart": { $type: "date" },
+    },
     name: "unique_interest_period_per_user",
-    // partialFilterExpression is a stronger alternative to sparse when supported,
-    // but sparse is universally compatible with MongoDB 4+.
   },
 );
 

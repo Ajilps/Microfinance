@@ -472,8 +472,13 @@ const ManageLoans = () => {
                           <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#10b981' }}>₹{interestCalc.totalAlreadyRecorded.toFixed(2)}</div>
                         </div>
                         <div style={{ flex: 1, background: '#fef3c7', borderRadius: '8px', padding: '0.75rem', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Unrecorded</div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Due & Unrecorded</div>
                           <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#92400e' }}>₹{interestCalc.totalUnrecorded.toFixed(2)}</div>
+                          {(interestCalc.projectedPartialInterest || 0) > 0 && (
+                            <div style={{ fontSize: '0.72rem', color: '#92400e' }}>
+                              Partial-period projection: ₹{interestCalc.projectedPartialInterest.toFixed(2)}
+                            </div>
+                          )}
                           <button
                             type="button"
                             className="btn btn-primary"
@@ -524,7 +529,7 @@ const ManageLoans = () => {
                                     )}
                                   </td>
                                   <td style={{ padding: '0.6rem 0.75rem', textAlign: 'center', borderBottom: '1px solid #f1f5f9' }}>
-                                    {!period.alreadyRecorded && (
+                                    {!period.alreadyRecorded && !period.isPartial && (
                                       <button
                                         className="btn btn-primary"
                                         style={{ padding: '0.25rem 0.75rem', fontSize: '0.78rem' }}
@@ -533,6 +538,9 @@ const ManageLoans = () => {
                                       >
                                         {recordingPeriod === period.periodStart.toString() ? '...' : 'Record'}
                                       </button>
+                                    )}
+                                    {!period.alreadyRecorded && period.isPartial && (
+                                      <span style={{ color: '#64748b', fontSize: '0.75rem' }}>Projection only</span>
                                     )}
                                   </td>
                                 </tr>

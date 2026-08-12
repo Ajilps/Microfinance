@@ -5,7 +5,7 @@ import * as yup from 'yup';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
-import { AuthContext } from '../../context/AuthContext';
+import AuthContext from '../../context/auth-context';
 import PasswordInput from '../../components/PasswordInput';
 
 // Validation Schema — login only needs email + non-empty password
