@@ -9,6 +9,9 @@ const NAV_ITEMS = [
   { to: '/admin/loans', icon: '💳', label: 'Manage Loans' },
   { to: '/admin/savings', icon: '🏦', label: 'Manage Savings' },
   { to: '/admin/attendance', icon: '📋', label: 'Attendance' },
+  { to: '/admin/weekly-transactions', icon: '📅', label: 'Weekly Transactions' },
+  { to: '/admin/income-expenses', icon: '↕', label: 'Income & Expenses' },
+  { to: '/admin/profit-distribution', icon: '💹', label: 'Profit & Distribution' },
   { to: '/admin/reports', icon: '📊', label: 'Reports' },
 ];
 

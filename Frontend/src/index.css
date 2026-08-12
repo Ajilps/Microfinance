@@ -488,6 +488,61 @@ select.input-field option {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Financial reports stay horizontally scrollable at every screen size. */
+.report-table-scroll {
+  overflow-x: auto !important;
+  overscroll-behavior-inline: contain;
+  padding-bottom: 0.4rem;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) var(--surface-2);
+}
+
+.report-table-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.report-table-scroll::-webkit-scrollbar-track {
+  background: var(--surface-2);
+  border-radius: 999px;
+}
+
+.report-table-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+
+.report-table {
+  width: 100%;
+}
+
+.report-table--loans {
+  min-width: 1450px;
+}
+
+.report-table--savings {
+  min-width: 850px;
+}
+
+.report-scroll-hint {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: 0 0 0.6rem;
+}
+
+.report-table th:first-child,
+.report-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+
+.report-table th:first-child {
+  z-index: 2;
+  background: var(--surface-2);
+}
+
 @media (min-width: 769px) {
   .table-scroll {
     overflow-x: visible;

@@ -37,6 +37,9 @@ A full-stack web application for managing microfinance operations, including use
 - **Savings Management** — Record and review deposit/withdrawal transactions for any member.
 - **Loan Management** — Issue loans, record repayments, and monitor outstanding balances.
 - **Attendance Tracking** — Log and review member attendance with fine management for absences.
+- **Weekly Transactions** — Review Monday–Sunday cash in, cash out, and non-cash accrued charges with separate weekly and category totals.
+- **Income & Expenses** — Add, edit, filter, and total additional income and business expenses with mandatory transaction dates and sources/reasons.
+- **Profit & Distribution** — Review accrued and cash profit through any date, preview savings-weighted member shares, and record immutable payout histories.
 - **Reports** — Export data to CSV for offline analysis.
 - **Automated Interest** — A background cron job applies 1 % monthly interest (every 28 days) to outstanding loan balances automatically.
 
@@ -149,32 +152,31 @@ npm install
 
 #### Docker Compose (recommended)
 
-The development stack runs MongoDB, restores the supplied development backup
-on the first start, and starts the backend and Vite frontend with live reload:
+The default Compose configuration builds the React frontend, copies the
+generated `dist` directory into the backend image, and starts the Express
+backend as the only container. Express serves both the API and the compiled
+frontend on port 4000.
+
+```bash
+docker compose up -d
+```
+
+Open `http://localhost:4000`. The MongoDB connection is read from `MONGO_URI`
+in `Backend/.env`; the default Compose configuration does not start a database
+container. The image is rebuilt each time `docker compose up` is run so the
+served frontend bundle matches the current source.
+
+To stop the application:
+
+```bash
+docker compose down
+```
+
+For Vite live reload and the optional local MongoDB backup restore workflow,
+use the separate development configuration:
 
 ```bash
 docker compose -f compose.dev.yaml up --build
-```
-
-Open `http://localhost:5173`. The backend is also available directly at
-`http://localhost:4001`, and MongoDB at `mongodb://localhost:27017/test`.
-The different backend port allows this stack to run beside the production-style
-Compose service on port 4000.
-
-The restore is intentionally skipped after the named MongoDB volume contains
-data. To start again from the backup, stop the stack and explicitly remove its
-development volumes before starting it again:
-
-```bash
-docker compose -f compose.dev.yaml down --volumes
-docker compose -f compose.dev.yaml up --build
-```
-
-Host ports can be overridden when needed:
-
-```bash
-BACKEND_PORT=4010 FRONTEND_PORT=5180 MONGODB_PORT=27018 \
-  docker compose -f compose.dev.yaml up --build
 ```
 
 Open **two terminals**:
@@ -251,6 +253,14 @@ ADMIN_PASSWORD=Admin@1234
 | `ADMIN_NAME`     | Optional | Display name for the auto-seeded admin account.                            |
 | `ADMIN_EMAIL`    | Optional | Email for the auto-seeded admin account.                                   |
 | `ADMIN_PASSWORD` | Optional | Password for the auto-seeded admin account.                                |
+
+The profit allocation preview is available by default, while recording a
+distribution is disabled. To enable its button, add this to `Frontend/.env`
+and restart the frontend:
+
+```dotenv
+VITE_ENABLE_PROFIT_DISTRIBUTION=true
+```
 
 > ⚠️ **Security:** Never commit your `.env` file. It is already listed in `.gitignore`.
 

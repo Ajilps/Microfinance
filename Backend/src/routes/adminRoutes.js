@@ -13,6 +13,7 @@ import {
   getAttendanceByDate,
   getMonthlyAttendanceSummary,
   downloadMonthlyCSV,
+  downloadAllTimeCSV,
   recordFinePayment,
   getUserFineReport,
   getAllTimeAttendanceSummary,
@@ -33,7 +34,25 @@ import {
   getAllUsersSavingsOverview,
   deleteSavingsPayment,
 } from "../controllers/savingsController.js";
+import {
+  createExtraTransaction,
+  getExtraTransactions,
+  getWeeklyTransactions,
+  updateExtraTransaction,
+} from "../controllers/financeController.js";
+import {
+  downloadLoanReport,
+  downloadSavingsReport,
+  getLoanReport,
+  getSavingsReport,
+} from "../controllers/reportController.js";
+import {
+  createProfitDistribution,
+  getProfitDistributions,
+  getProfitOverview,
+} from "../controllers/profitController.js";
 import { adminProtect } from "../middleware/adminMiddleware.js";
+import asyncHandler from "../middleware/asyncHandler.js";
 
 const router = express.Router();
 
@@ -56,6 +75,11 @@ router.get("/attendance/monthly", adminProtect, getMonthlyAttendanceSummary);
 router.get("/attendance/all", adminProtect, getAllTimeAttendanceSummary);
 // GET /api/admin/attendance/download?month=3&year=2026
 router.get("/attendance/download", adminProtect, downloadMonthlyCSV);
+router.get(
+  "/attendance/download/all",
+  adminProtect,
+  asyncHandler(downloadAllTimeCSV),
+);
 
 // ─── Fine Payments ────────────────────────────────────────────────────────────
 // POST /api/admin/attendance/fine/payment — record a fine payment
@@ -110,5 +134,44 @@ router.delete(
 router.get("/savings/:userId", adminProtect, getUserSavingsDetail);
 // GET    /api/admin/savings — all users' savings overview
 router.get("/savings", adminProtect, getAllUsersSavingsOverview);
+
+// ─── Finance & Weekly Cash Flow ───────────────────────────────────────────────
+router.get("/finance/entries", adminProtect, asyncHandler(getExtraTransactions));
+router.post(
+  "/finance/entries",
+  adminProtect,
+  asyncHandler(createExtraTransaction),
+);
+router.put(
+  "/finance/entries/:id",
+  adminProtect,
+  asyncHandler(updateExtraTransaction),
+);
+router.get("/finance/weekly", adminProtect, asyncHandler(getWeeklyTransactions));
+router.get("/finance/profit", adminProtect, asyncHandler(getProfitOverview));
+router.get(
+  "/finance/profit/distributions",
+  adminProtect,
+  asyncHandler(getProfitDistributions),
+);
+router.post(
+  "/finance/profit/distributions",
+  adminProtect,
+  asyncHandler(createProfitDistribution),
+);
+
+// ─── Downloadable Reports ────────────────────────────────────────────────────
+router.get("/reports/loans", adminProtect, asyncHandler(getLoanReport));
+router.get(
+  "/reports/loans/download",
+  adminProtect,
+  asyncHandler(downloadLoanReport),
+);
+router.get("/reports/savings", adminProtect, asyncHandler(getSavingsReport));
+router.get(
+  "/reports/savings/download",
+  adminProtect,
+  asyncHandler(downloadSavingsReport),
+);
 
 export default router;

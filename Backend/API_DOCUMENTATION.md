@@ -2,6 +2,36 @@
 
 Base URL: `http://localhost:4000`
 
+> In the Docker development stack, the backend is exposed at
+> `http://localhost:4001` by default.
+
+## Finance Routes (Admin)
+
+All finance routes require an admin Bearer token.
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/admin/finance/entries?type=all&startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` | List additional income and expenses with filtered totals. |
+| `POST` | `/api/admin/finance/entries` | Add an income or expense record. |
+| `PUT` | `/api/admin/finance/entries/:id` | Edit an income or expense record. |
+| `GET` | `/api/admin/finance/weekly?date=YYYY-MM-DD` | Get the combined Monday–Sunday transaction report. |
+
+Create and update bodies use the following shape:
+
+```json
+{
+  "type": "expense",
+  "amount": 500,
+  "transactionDate": "2026-08-12",
+  "sourceOrReason": "Office stationery",
+  "note": "Optional details"
+}
+```
+
+`sourceOrReason`, `transactionDate`, `type`, and a positive `amount` are
+required. The weekly report returns cash income, cash expenses, net cash flow,
+non-cash loan charges, total activity, category totals, and transaction rows.
+
 ---
 
 ## Authentication
@@ -1045,6 +1075,78 @@ Authorization: Bearer <admin_jwt_token>
 | Status | Message |
 |--------|---------|
 | `403` | Forbidden: Admin access required |
+
+---
+
+## Downloadable Reports
+
+All report endpoints require an admin bearer token.
+
+### Attendance CSV
+
+- Monthly: **GET** `/api/admin/attendance/download?month=8&year=2026`
+- Till now: **GET** `/api/admin/attendance/download/all`
+
+### Loan Reports
+
+- Preview: **GET** `/api/admin/reports/loans?scope=monthly&month=8&year=2026`
+- All-time preview: **GET** `/api/admin/reports/loans?scope=all`
+- CSV: **GET** `/api/admin/reports/loans/download` with the same query parameters
+
+Monthly loan reports show activity during the selected month and balances
+calculated through that month's end.
+
+### Savings Reports
+
+- Preview: **GET** `/api/admin/reports/savings?scope=monthly&month=8&year=2026`
+- All-time preview: **GET** `/api/admin/reports/savings?scope=all`
+- CSV: **GET** `/api/admin/reports/savings/download` with the same query parameters
+
+Monthly savings reports show deposits during the selected month and savings
+balances calculated through that month's end.
+
+---
+
+## Profit & Distribution
+
+All profit endpoints require an admin bearer token.
+
+### Profit Overview and Allocation Preview
+
+**GET** `/api/admin/finance/profit?asOfDate=2026-08-12&amount=10000`
+
+The amount is optional. When omitted, the API previews all currently
+distributable cash profit. The response includes:
+
+- loan distribution and repayment totals;
+- generated and collected interest;
+- outstanding principal and interest;
+- loan fines, attendance-fine income, other income, and other expenses;
+- accrued revenue, expenses, and profit;
+- cash profit remaining after earlier distributions;
+- a cent-accurate member allocation based on savings through the selected date.
+
+### Record Profit Distribution
+
+**POST** `/api/admin/finance/profit/distributions`
+
+```json
+{
+  "asOfDate": "2026-08-12",
+  "amount": 10000
+}
+```
+
+The server recalculates availability and member shares before saving. A
+distribution is stored as an immutable payout snapshot and does not change
+weekly savings balances.
+
+### Distribution History
+
+**GET** `/api/admin/finance/profit/distributions`
+
+Returns recorded distributions with member savings, percentages, allocated
+amounts, and the admin who recorded each payout.
 
 ---
 

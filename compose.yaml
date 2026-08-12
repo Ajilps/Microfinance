@@ -1,8 +1,18 @@
+name: microfinance
+
 services:
   app:
-    build: .
-    ports:
-      - "4000:4000"
+    image: microfinance-app:local
+    # Rebuild the multi-stage image whenever `docker compose up` is run so the
+    # backend always serves a frontend bundle generated from the current source.
+    pull_policy: build
+    build:
+      context: .
+      dockerfile: Dockerfile
     env_file:
       - ./Backend/.env
+    environment:
+      NODE_ENV: production
+    ports:
+      - "4000:4000"
     restart: unless-stopped

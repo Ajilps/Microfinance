@@ -17,12 +17,21 @@ const ManageSavings = () => {
   const [userSavingsDetail, setUserSavingsDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm({
     defaultValues: {
       paidOn: moment().format('YYYY-MM-DD'),
       weekStartDate: moment().startOf('isoWeek').format('YYYY-MM-DD'),
     }
   });
+  const updateWeekStartDate = (paidOn) => {
+    const paymentDate = moment(paidOn, 'YYYY-MM-DD', true);
+    if (!paymentDate.isValid()) return;
+
+    setValue('weekStartDate', paymentDate.startOf('isoWeek').format('YYYY-MM-DD'), {
+      shouldValidate: true,
+    });
+  };
+
   const [submitLoading, setSubmitLoading] = useState(false);
 
   // Delete-payment state
@@ -374,6 +383,7 @@ const ManageSavings = () => {
                   type="date"
                   className="input-field"
                   {...register('paidOn', { required: 'Date is required' })}
+                  onInput={(event) => updateWeekStartDate(event.currentTarget.value)}
                 />
                 {errors.paidOn && <p className="error-text">{errors.paidOn.message}</p>}
               </div>
@@ -386,7 +396,7 @@ const ManageSavings = () => {
                   {...register('weekStartDate', { required: 'Week start date is required' })}
                 />
                 <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-                  Monday of the savings week
+                  Automatically set from Paid On; you can change it manually.
                 </p>
                 {errors.weekStartDate && <p className="error-text">{errors.weekStartDate.message}</p>}
               </div>

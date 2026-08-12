@@ -1,23 +1,23 @@
-FROM node:26 AS build
-WORKDIR /app
-COPY ./Frontend/package*.json .
+FROM node:26 AS frontend-build
+WORKDIR /frontend
+
+COPY ./Frontend/package*.json ./
 RUN npm ci
 
-COPY ./Frontend/ .
-
+COPY ./Frontend/ ./
 RUN npm run build
 
-
-# for running the server
-FROM node:26-alpine AS server
+# Run the Express backend and serve the compiled React application from /app/dist.
+FROM node:26-alpine AS app
 WORKDIR /app
 
-COPY ./Backend/package*.json .
-
+COPY ./Backend/package*.json ./
 RUN npm ci --omit=dev
 
+COPY ./Backend/ ./
+COPY --from=frontend-build /frontend/dist ./dist
 
-COPY ./Backend .
-COPY --from=build /app/dist /app/dist
+ENV NODE_ENV=production
+EXPOSE 4000
 
-CMD [ "node","./src/server.js"]
+CMD ["node", "./src/server.js"]
