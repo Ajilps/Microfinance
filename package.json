@@ -1,0 +1,13 @@
+{
+  "name": "microfinance",
+  "private": true,
+  "scripts": {
+    "render-build": "npm ci --prefix Backend && npm ci --prefix Frontend && npm run build --prefix Frontend -- --outDir ../Backend/dist --emptyOutDir",
+    "start": "npm start --prefix Backend",
+    "test": "npm test --prefix Backend",
+    "lint": "npm run lint --prefix Frontend"
+  },
+  "engines": {
+    "node": ">=22 <27"
+  }
+}

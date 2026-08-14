@@ -199,6 +199,22 @@ Navigate to `http://localhost:5173` in your browser.
 
 > **Tip:** The Vite dev server is pre-configured to proxy `/api` requests to `http://localhost:4000`, so no cross-origin issues occur during development.
 
+#### Render Deployment
+
+The repository includes `render.yaml` for a single native Node web service.
+Render must have **Root Directory left blank** so the build can access both
+`Frontend` and `Backend`. Use these service commands:
+
+```text
+Build Command: npm run render-build
+Start Command: npm start
+```
+
+The build installs both applications and writes the Vite production bundle to
+`Backend/dist`, which Express serves together with the API. Configure
+`MONGO_URI`, `JWT_SECRET`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` as secret Render
+environment variables.
+
 ### 5. Production Build
 
 Build the React app and copy the output into the backend's `dist/` folder so Express can serve it:
