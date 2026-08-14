@@ -31,6 +31,7 @@ const ManageAttendance = lazy(() => import('./pages/Admin/ManageAttendance'));
 const ManageReports = lazy(() => import('./pages/Admin/ManageReports'));
 const WeeklyTransactions = lazy(() => import('./pages/Admin/WeeklyTransactions'));
 const ManageIncomeExpenses = lazy(() => import('./pages/Admin/ManageIncomeExpenses'));
+const BankTransactions = lazy(() => import('./pages/Admin/BankTransactions'));
 const ProfitDistribution = lazy(() => import('./pages/Admin/ProfitDistribution'));
 
 const App = () => {
@@ -83,6 +84,7 @@ const App = () => {
               <Route path="reports" element={<ManageReports />} />
               <Route path="weekly-transactions" element={<WeeklyTransactions />} />
               <Route path="income-expenses" element={<ManageIncomeExpenses />} />
+              <Route path="bank-transactions" element={<BankTransactions />} />
               <Route path="profit-distribution" element={<ProfitDistribution />} />
             </Route>
           </Route>

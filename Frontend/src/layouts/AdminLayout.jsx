@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: '/admin/attendance', icon: '📋', label: 'Attendance' },
   { to: '/admin/weekly-transactions', icon: '📅', label: 'Weekly Transactions' },
   { to: '/admin/income-expenses', icon: '↕', label: 'Income & Expenses' },
+  { to: '/admin/bank-transactions', icon: '🏛️', label: 'Bank Transactions' },
   { to: '/admin/profit-distribution', icon: '💹', label: 'Profit & Distribution' },
   { to: '/admin/reports', icon: '📊', label: 'Reports' },
 ];

@@ -5,6 +5,29 @@ Base URL: `http://localhost:4000`
 > In the Docker development stack, the backend is exposed at
 > `http://localhost:4001` by default.
 
+## Dashboard Analytics (Admin)
+
+All dashboard analytics routes require an admin Bearer token.
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/admin/dashboard/overview` | Return the dashboard snapshot in one request. |
+
+The response contains:
+
+- `summary`: member, savings, loan, interest, bank, profit, collection-rate,
+  savings-coverage, and latest-attendance KPIs.
+- `monthlyActivity`: six calendar months of savings received, loans distributed,
+  and principal repayments.
+- `loanComposition`: total principal repaid and still outstanding.
+- `attendanceTrend`: the latest eight recorded meetings, grouped by status.
+- `bankTrend`: six calendar months of deposits, withdrawals, and closing balance.
+- `topSavers`: the six members with the largest current savings balances.
+- `recentMembers`: the five most recently created member accounts.
+
+Money values are returned as numbers rounded to two decimal places. Rates are
+percentages rounded to two decimal places.
+
 ## Finance Routes (Admin)
 
 All finance routes require an admin Bearer token.
@@ -29,8 +52,8 @@ Create and update bodies use the following shape:
 ```
 
 `sourceOrReason`, `transactionDate`, `type`, and a positive `amount` are
-required. The weekly report returns cash income, cash expenses, net cash flow,
-non-cash loan charges, total activity, category totals, and transaction rows.
+required. The weekly report returns separate cash-in, cash-out, and non-cash
+totals together with total activity, category totals, and transaction rows.
 
 ---
 
@@ -1104,6 +1127,47 @@ calculated through that month's end.
 
 Monthly savings reports show deposits during the selected month and savings
 balances calculated through that month's end.
+
+---
+
+## Bank Transactions
+
+All bank transaction endpoints require an admin bearer token.
+
+### Bank Ledger
+
+**GET** `/api/admin/finance/bank-transactions?startDate=2026-08-01&endDate=2026-08-31`
+
+Returns transactions in newest-first display order. Every transaction includes
+the running bank balance calculated from the complete chronological ledger, so
+date filtering does not reset the balance. The response also includes the
+current all-time balance and deposit/withdrawal totals for the selected range.
+
+### Add Bank Transaction
+
+**POST** `/api/admin/finance/bank-transactions`
+
+```json
+{
+  "transactionDate": "2026-08-14",
+  "particulars": "Profit payout transfer",
+  "chequeNumber": "10024",
+  "chequeName": "Member One",
+  "withdrawal": 2500,
+  "deposit": 0
+}
+```
+
+Exactly one of `withdrawal` or `deposit` must be greater than zero. Cheque
+number and cheque name are optional. Balance is calculated by the server and
+is not accepted as an input.
+
+### Edit Bank Transaction
+
+**PUT** `/api/admin/finance/bank-transactions/:id`
+
+Accepts the same fields as the create endpoint. Editing a dated entry causes
+all later running balances to be recalculated when the ledger is requested.
 
 ---
 

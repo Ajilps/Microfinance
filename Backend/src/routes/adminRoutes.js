@@ -41,6 +41,11 @@ import {
   updateExtraTransaction,
 } from "../controllers/financeController.js";
 import {
+  createBankTransaction,
+  getBankTransactions,
+  updateBankTransaction,
+} from "../controllers/bankTransactionController.js";
+import {
   downloadLoanReport,
   downloadSavingsReport,
   getLoanReport,
@@ -55,8 +60,16 @@ import {
 } from "../controllers/profitController.js";
 import { adminProtect } from "../middleware/adminMiddleware.js";
 import asyncHandler from "../middleware/asyncHandler.js";
+import { getDashboardOverview } from "../controllers/dashboardController.js";
 
 const router = express.Router();
+
+// ─── Dashboard Analytics ─────────────────────────────────────────────────────
+router.get(
+  "/dashboard/overview",
+  adminProtect,
+  asyncHandler(getDashboardOverview),
+);
 
 // ─── User Management ──────────────────────────────────────────────────────────
 router.get("/users", adminProtect, getAllUsers);
@@ -150,6 +163,21 @@ router.put(
   asyncHandler(updateExtraTransaction),
 );
 router.get("/finance/weekly", adminProtect, asyncHandler(getWeeklyTransactions));
+router.get(
+  "/finance/bank-transactions",
+  adminProtect,
+  asyncHandler(getBankTransactions),
+);
+router.post(
+  "/finance/bank-transactions",
+  adminProtect,
+  asyncHandler(createBankTransaction),
+);
+router.put(
+  "/finance/bank-transactions/:id",
+  adminProtect,
+  asyncHandler(updateBankTransaction),
+);
 router.get("/finance/profit", adminProtect, asyncHandler(getProfitOverview));
 router.get(
   "/finance/profit/distributions",

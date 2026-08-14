@@ -32,13 +32,14 @@ A full-stack web application for managing microfinance operations, including use
 
 ### Admin
 
-- **Dashboard** — At-a-glance statistics: total users, outstanding loans, total savings, and recent activity.
+- **Analytics Dashboard** — Live financial KPIs plus responsive charts for six-month fund activity, loan principal position, savings leaders, attendance trends, and bank movement.
 - **User Management** — Create, view, update, and deactivate member accounts.
 - **Savings Management** — Record and review deposit/withdrawal transactions for any member.
 - **Loan Management** — Issue loans, record repayments, and monitor outstanding balances.
 - **Attendance Tracking** — Log and review member attendance with fine management for absences.
 - **Weekly Transactions** — Review Monday–Sunday cash in, cash out, and non-cash accrued charges with separate weekly and category totals.
 - **Income & Expenses** — Add, edit, filter, and total additional income and business expenses with mandatory transaction dates and sources/reasons.
+- **Bank Transactions** — Maintain a dated bank ledger with particulars, cheque details, deposits, withdrawals, filters, and automatically recalculated running balances.
 - **Profit & Distribution** — Review accrued and cash profit, prevent duplicate payouts, allocate by savings, safely reverse allocations, and permanently lock confirmed payouts against reversal.
 - **Reports** — Export data to CSV for offline analysis.
 - **Automated Interest** — A background cron job applies 1 % monthly interest (every 28 days) to outstanding loan balances automatically.
@@ -291,7 +292,7 @@ VITE_ENABLE_PROFIT_DISTRIBUTION=true
 3. Use **Manage Savings** to record deposits and withdrawals.
 4. Use **Manage Loans** to disburse loans and record repayments.
 5. Use **Manage Attendance** to mark member presence and manage fines.
-6. Visit **Dashboard** for a high-level summary of all operations.
+6. Visit **Dashboard** for live portfolio KPIs and visual trends across savings, loans, attendance, and bank activity.
 
 ### User Workflow
 
@@ -359,6 +360,12 @@ curl -X POST http://localhost:4000/api/users/login \
 | `GET`  | `/api/users/attendance` | User   | Get own attendance records |
 | `GET`  | `/api/admin/attendance` | Admin  | Get all attendance records |
 | `POST` | `/api/admin/attendance` | Admin  | Mark attendance            |
+
+#### Dashboard Analytics
+
+| Method | Endpoint                        | Access | Description                                                          |
+| ------ | ------------------------------- | ------ | -------------------------------------------------------------------- |
+| `GET`  | `/api/admin/dashboard/overview` | Admin  | Get dashboard KPIs, six-month trends, savings leaders, and activity. |
 
 > See [`Backend/API_DOCUMENTATION.md`](Backend/API_DOCUMENTATION.md) for the complete request/response schemas and all available endpoints.
 
