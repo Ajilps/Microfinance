@@ -35,8 +35,8 @@ const MyLoans = () => {
 
   // Filter transactions by tab
   const filteredHistory = history.filter(tx => {
-    if (activeTab === 'principal') return tx.type === 'loan' || (tx.type === 'repayment' && tx.paymentTarget === 'principal');
-    if (activeTab === 'interest') return tx.type === 'interest' || tx.type === 'fine' || (tx.type === 'repayment' && tx.paymentTarget === 'interest');
+    if (activeTab === 'principal') return tx.type === 'loan' || tx.type === 'closure' || (tx.type === 'repayment' && tx.paymentTarget === 'principal');
+    if (activeTab === 'interest') return tx.type === 'interest' || tx.type === 'fine' || tx.type === 'closure' || (tx.type === 'repayment' && tx.paymentTarget === 'interest');
     return true;
   });
 
@@ -90,6 +90,13 @@ const MyLoans = () => {
       return (
         <span style={{ padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.78rem', fontWeight: 600, background: '#dcfce7', color: '#166534' }}>
           Payment
+        </span>
+      );
+    }
+    if (tx.type === 'closure') {
+      return (
+        <span style={{ padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.78rem', fontWeight: 600, background: '#ffe4e6', color: '#9f1239' }}>
+          Loan Closed — Paid in Full
         </span>
       );
     }
@@ -239,12 +246,16 @@ const MyLoans = () => {
                           <td>{txTypeBadge(tx)}</td>
                           <td style={{
                             fontWeight: 700,
-                            color: tx.type === 'repayment' ? '#10b981' : tx.type === 'interest' ? '#d97706' : tx.type === 'fine' ? '#7c3aed' : 'var(--danger)',
+                            color: tx.type === 'repayment' || tx.type === 'closure' ? '#10b981' : tx.type === 'interest' ? '#d97706' : tx.type === 'fine' ? '#7c3aed' : 'var(--danger)',
                           }}>
-                            {tx.type === 'repayment' ? '−' : '+'}₹{tx.amount.toFixed(2)}
+                            {tx.type === 'repayment' || tx.type === 'closure' ? '−' : '+'}₹{tx.amount.toFixed(2)}
                           </td>
                           <td style={{ fontSize: '0.82rem', color: '#64748b' }}>
-                            {tx.type === 'interest' && tx.interestPeriod?.periodStart ? (
+                            {tx.type === 'closure' && tx.closureDetails ? (
+                              <span>
+                                Principal ₹{Number(tx.closureDetails.principalPaid || 0).toFixed(2)} · Interest ₹{Number(tx.closureDetails.interestPaid || 0).toFixed(2)}
+                              </span>
+                            ) : tx.type === 'interest' && tx.interestPeriod?.periodStart ? (
                               <span>
                                 Period: {moment(tx.interestPeriod.periodStart).format('MMM D')} – {moment(tx.interestPeriod.periodEnd).format('MMM D, YYYY')}
                                 {' '}· {((tx.interestPeriod.interestRate || 0.01) * 100).toFixed(1)}% on ₹{(tx.interestPeriod.principalBalance || 0).toFixed(2)}

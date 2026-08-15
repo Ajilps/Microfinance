@@ -93,15 +93,25 @@ test("savings report shows selected-month deposits and balance through month end
       paidOn: new Date("2026-09-01T00:00:00Z"),
     },
   ];
+  const withdrawals = [
+    {
+      user: "user-1",
+      amount: 80,
+      withdrawalDate: new Date("2026-08-20T00:00:00Z"),
+    },
+  ];
 
-  const report = buildSavingsReport({ users, payments, period });
+  const report = buildSavingsReport({ users, payments, withdrawals, period });
   const member = report.rows[0];
 
   assert.equal(member.paymentCount, 1);
   assert.equal(member.amountSaved, 250);
-  assert.equal(member.savingsBalance, 350);
-  assert.equal(member.savingsInterest, 3.5);
-  assert.equal(report.totals.savingsBalance, 350);
+  assert.equal(member.withdrawalCount, 1);
+  assert.equal(member.amountWithdrawn, 80);
+  assert.equal(member.netSavingsMovement, 170);
+  assert.equal(member.savingsBalance, 270);
+  assert.equal(member.savingsInterest, 2.7);
+  assert.equal(report.totals.savingsBalance, 270);
 });
 
 test("all-time attendance report includes fine payments and balances", () => {

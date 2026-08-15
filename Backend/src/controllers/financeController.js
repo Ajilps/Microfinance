@@ -2,6 +2,7 @@ import ExtraTransaction from "../models/extraTransactionModel.js";
 import FinePayment from "../models/finePaymentModel.js";
 import LoanTransaction from "../models/loanModel.js";
 import SavingsPayment from "../models/savingsModel.js";
+import SavingsWithdrawal from "../models/savingsWithdrawalModel.js";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -81,6 +82,7 @@ const getExtraTransactionTotals = (entries) => {
 const buildWeeklyTransactions = ({
   loans,
   savings,
+  savingsWithdrawals = [],
   finePayments,
   extras,
 }) => {
@@ -117,6 +119,12 @@ const buildWeeklyTransactions = ({
             : "Loan repayment",
         income: transaction.amount,
       });
+    } else if (transaction.type === "closure") {
+      transactions.push({
+        ...base,
+        category: "Loan closure payment",
+        income: transaction.amount,
+      });
     } else if (transaction.type === "interest") {
       transactions.push({
         ...base,
@@ -145,6 +153,22 @@ const buildWeeklyTransactions = ({
       recordedBy: payment.recordedBy?.name || "Unknown admin",
       income: payment.amount,
       expense: 0,
+      nonCash: 0,
+      isCash: true,
+    });
+  }
+
+  for (const withdrawal of savingsWithdrawals) {
+    transactions.push({
+      id: String(withdrawal._id),
+      sourceType: "savings-withdrawal",
+      date: withdrawal.withdrawalDate,
+      category: "Savings withdrawal",
+      memberOrSource: withdrawal.user?.name || "Unknown member",
+      reason: withdrawal.reason || withdrawal.note || "",
+      recordedBy: withdrawal.recordedBy?.name || "Unknown admin",
+      income: 0,
+      expense: withdrawal.amount,
       nonCash: 0,
       isCash: true,
     });
@@ -321,11 +345,15 @@ const getWeeklyTransactions = async (req, res) => {
   const { weekStart, weekEnd, weekEndExclusive } = range;
   const dateFilter = { $gte: weekStart, $lt: weekEndExclusive };
 
-  const [loans, savings, finePayments, extras] = await Promise.all([
+  const [loans, savings, savingsWithdrawals, finePayments, extras] =
+    await Promise.all([
     LoanTransaction.find({ date: dateFilter })
       .populate("user", "name email")
       .populate("recordedBy", "name"),
     SavingsPayment.find({ paidOn: dateFilter })
+      .populate("user", "name email")
+      .populate("recordedBy", "name"),
+    SavingsWithdrawal.find({ withdrawalDate: dateFilter })
       .populate("user", "name email")
       .populate("recordedBy", "name"),
     FinePayment.find({ paidOn: dateFilter })
@@ -340,6 +368,7 @@ const getWeeklyTransactions = async (req, res) => {
   const report = buildWeeklyTransactions({
     loans,
     savings,
+    savingsWithdrawals,
     finePayments,
     extras,
   });

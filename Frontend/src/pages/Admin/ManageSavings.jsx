@@ -33,6 +33,15 @@ const ManageSavings = () => {
   };
 
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [withdrawalLoading, setWithdrawalLoading] = useState(false);
+  const [withdrawalForm, setWithdrawalForm] = useState({
+    amount: '',
+    withdrawalDate: moment().format('YYYY-MM-DD'),
+    reason: '',
+    paymentMethod: 'cash',
+    referenceNumber: '',
+    note: '',
+  });
 
   // Delete-payment state
   const [deleteModal, setDeleteModal] = useState(null); // { payment } | null
@@ -104,12 +113,41 @@ const ManageSavings = () => {
         weekStartDate: moment().startOf('isoWeek').format('YYYY-MM-DD'),
       });
       // Refresh
-      openUserDetail(selectedUserId, selectedUserName);
-      fetchSavingsOverview();
+      await Promise.all([
+        openUserDetail(selectedUserId, selectedUserName),
+        fetchSavingsOverview(),
+      ]);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to record saving');
     } finally {
       setSubmitLoading(false);
+    }
+  };
+
+  const onSubmitWithdrawal = async (event) => {
+    event.preventDefault();
+    setWithdrawalLoading(true);
+    try {
+      await api.post(`/admin/savings/${selectedUserId}/withdrawal`, {
+        ...withdrawalForm,
+        amount: Number(withdrawalForm.amount),
+      });
+      toast.success('Savings withdrawal recorded successfully');
+      setWithdrawalForm((current) => ({
+        ...current,
+        amount: '',
+        reason: '',
+        referenceNumber: '',
+        note: '',
+      }));
+      await Promise.all([
+        openUserDetail(selectedUserId, selectedUserName),
+        fetchSavingsOverview(),
+      ]);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to record withdrawal');
+    } finally {
+      setWithdrawalLoading(false);
     }
   };
 
@@ -129,11 +167,14 @@ const ManageSavings = () => {
     const { payment } = deleteModal;
     setDeleting(true);
     try {
+      const endpoint = payment.transactionType === 'withdrawal'
+        ? `/admin/savings/${selectedUserId}/withdrawal/${payment._id}`
+        : `/admin/savings/${selectedUserId}/payment/${payment._id}`;
       const res = await api.delete(
-        `/admin/savings/${selectedUserId}/payment/${payment._id}`,
+        endpoint,
         { data: { reason: deleteReason.trim() } },
       );
-      toast.success('Savings payment deleted successfully');
+      toast.success(`Savings ${payment.transactionType || 'deposit'} deleted successfully`);
       setDeleteModal(null);
       setDeleteReason('');
       // Update detail view in place
@@ -143,9 +184,14 @@ const ManageSavings = () => {
           totalSavings: res.data.summaryAfter.totalSavings,
           savingsInterest: res.data.summaryAfter.savingsInterest,
           payments: prev.payments.filter(p => p._id !== payment._id),
+          withdrawals: (prev.withdrawals || []).filter(item => item._id !== payment._id),
+          transactions: (prev.transactions || []).filter(item => item._id !== payment._id),
         } : null);
       }
-      fetchSavingsOverview();
+      await Promise.all([
+        openUserDetail(selectedUserId, selectedUserName),
+        fetchSavingsOverview(),
+      ]);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to delete savings payment');
     } finally {
@@ -171,7 +217,11 @@ const ManageSavings = () => {
       totalSavings: 0,
       savingsInterest: 0,
       paymentsCount: 0,
+      withdrawalsCount: 0,
+      totalDeposits: 0,
+      totalWithdrawals: 0,
       lastPaidOn: null,
+      lastTransactionOn: null,
     };
   });
 
@@ -180,7 +230,7 @@ const ManageSavings = () => {
     overviewPage * ITEMS_PER_PAGE
   );
 
-  const payments = userSavingsDetail?.payments || [];
+  const payments = userSavingsDetail?.transactions || [];
   const paginatedPayments = payments.slice(
     (historyPage - 1) * ITEMS_PER_PAGE,
     historyPage * ITEMS_PER_PAGE
@@ -211,9 +261,11 @@ const ManageSavings = () => {
                     <tr>
                       <th>Member</th>
                       <th>Total Savings</th>
+                      <th>Total Deposited</th>
+                      <th>Total Withdrawn</th>
                       <th>Interest (1%)</th>
-                      <th>Payments</th>
-                      <th>Last Paid</th>
+                      <th>Deposits / Withdrawals</th>
+                      <th>Last Activity</th>
                       <th>Action</th>
                     </tr>
                   </thead>
@@ -227,11 +279,13 @@ const ManageSavings = () => {
                         <td style={{ color: 'var(--secondary-color)', fontWeight: 600 }}>
                           ₹{(member.totalSavings || 0).toFixed(2)}
                         </td>
+                        <td>₹{(member.totalDeposits || 0).toFixed(2)}</td>
+                        <td style={{ color: 'var(--danger)', fontWeight: 600 }}>₹{(member.totalWithdrawals || 0).toFixed(2)}</td>
                         <td style={{ color: 'var(--primary-color)' }}>
                           ₹{(member.savingsInterest || 0).toFixed(2)}
                         </td>
-                        <td>{member.paymentsCount || 0}</td>
-                        <td>{member.lastPaidOn ? moment(member.lastPaidOn).format('MMM Do YYYY') : <span style={{ color: '#94a3b8' }}>No payments yet</span>}</td>
+                        <td>{member.paymentsCount || 0} / {member.withdrawalsCount || 0}</td>
+                        <td>{member.lastTransactionOn ? moment(member.lastTransactionOn).format('MMM Do YYYY') : <span style={{ color: '#94a3b8' }}>No activity yet</span>}</td>
                         <td>
                           <button
                             className="btn btn-secondary"
@@ -263,11 +317,23 @@ const ManageSavings = () => {
               <div className="spinner"></div>
             ) : userSavingsDetail ? (
               <>
-                <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '1.5rem' }}>
+                <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: '1.5rem' }}>
                   <div className="stat-card" style={{ padding: '1rem' }}>
                     <div className="stat-title">Total Savings</div>
                     <div className="stat-value" style={{ fontSize: '1.5rem', color: 'var(--secondary-color)' }}>
                       ₹{(userSavingsDetail.totalSavings || 0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="stat-card" style={{ padding: '1rem' }}>
+                    <div className="stat-title">Total Deposited</div>
+                    <div className="stat-value" style={{ fontSize: '1.5rem', color: 'var(--secondary-color)' }}>
+                      ₹{(userSavingsDetail.totalDeposits || 0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="stat-card" style={{ padding: '1rem' }}>
+                    <div className="stat-title">Total Withdrawn</div>
+                    <div className="stat-value" style={{ fontSize: '1.5rem', color: 'var(--danger)' }}>
+                      ₹{(userSavingsDetail.totalWithdrawals || 0).toFixed(2)}
                     </div>
                   </div>
                   <div className="stat-card" style={{ padding: '1rem' }}>
@@ -294,37 +360,45 @@ const ManageSavings = () => {
 
                 <div className="table-container">
                   <h3 style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', margin: 0 }}>
-                    Savings History — {selectedUserName}
+                    Savings Ledger — {selectedUserName}
                   </h3>
                   {payments.length === 0 ? (
-                    <p style={{ padding: '1.5rem', color: '#64748b' }}>No payments yet. Record one using the form.</p>
+                    <p style={{ padding: '1.5rem', color: '#64748b' }}>No savings transactions yet.</p>
                   ) : (
                     <>
                       <div className="table-scroll">
                         <table className="data-table">
                           <thead>
                             <tr>
-                              <th>Week Of</th>
-                              <th>Paid On</th>
+                              <th>Date</th>
+                              <th>Type</th>
+                              <th>Week / Method</th>
                               <th>Amount</th>
                               <th>Recorded By</th>
-                              <th>Note</th>
+                              <th>Reason / Note</th>
                               <th>Action</th>
                             </tr>
                           </thead>
                           <tbody>
                             {paginatedPayments.map(payment => (
-                              <tr key={payment._id}>
-                                <td>{moment(payment.weekStartDate).format('MMM Do YYYY')}</td>
-                                <td>{moment(payment.paidOn).format('MMM Do YYYY')}</td>
-                                <td style={{ fontWeight: 600, color: 'var(--secondary-color)' }}>₹{(payment.amount || 0).toFixed(2)}</td>
+                              <tr key={`${payment.transactionType}-${payment._id}`}>
+                                <td>{moment(payment.transactionDate).format('MMM Do YYYY')}</td>
+                                <td>
+                                  <span className={`savings-type-badge ${payment.transactionType}`}>
+                                    {payment.transactionType === 'withdrawal' ? 'Withdrawal' : 'Deposit'}
+                                  </span>
+                                </td>
+                                <td>{payment.transactionType === 'withdrawal' ? payment.paymentMethod : moment(payment.weekStartDate).format('MMM Do YYYY')}</td>
+                                <td style={{ fontWeight: 600, color: payment.transactionType === 'withdrawal' ? 'var(--danger)' : 'var(--secondary-color)' }}>
+                                  {payment.transactionType === 'withdrawal' ? '−' : '+'}₹{(payment.amount || 0).toFixed(2)}
+                                </td>
                                 <td style={{ fontSize: '0.85rem', color: '#64748b' }}>{payment.recordedBy?.name || '—'}</td>
-                                <td style={{ fontSize: '0.85rem', color: '#64748b' }}>{payment.note || '—'}</td>
+                                <td style={{ fontSize: '0.85rem', color: '#64748b' }}>{payment.reason || payment.note || '—'}{payment.referenceNumber ? ` · ${payment.referenceNumber}` : ''}</td>
                                 <td>
                                   <button
                                     type="button"
                                     onClick={() => openDeleteModal(payment)}
-                                    aria-label={`Delete savings payment of ₹${payment.amount.toFixed(2)} on ${moment(payment.paidOn).format('MMM Do YYYY')}`}
+                                    aria-label={`Delete savings ${payment.transactionType} of ₹${payment.amount.toFixed(2)} on ${moment(payment.transactionDate).format('MMM Do YYYY')}`}
                                     style={{
                                       background: 'none',
                                       border: '1px solid #fca5a5',
@@ -416,6 +490,46 @@ const ManageSavings = () => {
               </button>
             </form>
           </div>
+
+          <div className="card savings-withdrawal-form" style={{ flex: 1, minWidth: '300px', alignSelf: 'flex-start' }}>
+            <h3 className="mb-4">Withdraw Savings — {selectedUserName}</h3>
+            <p style={{ color: '#64748b', fontSize: '0.82rem', marginTop: '-0.75rem', marginBottom: '1.25rem' }}>
+              Current available balance: ₹{(userSavingsDetail?.totalSavings || 0).toFixed(2)}
+            </p>
+            <form onSubmit={onSubmitWithdrawal}>
+              <div className="input-group">
+                <label className="input-label" htmlFor="savings-withdrawal-amount">Amount (₹) *</label>
+                <input id="savings-withdrawal-amount" type="number" className="input-field" min="0.01" max={userSavingsDetail?.totalSavings || 0} step="0.01" required value={withdrawalForm.amount} onChange={(event) => setWithdrawalForm({ ...withdrawalForm, amount: event.target.value })} placeholder="0.00" />
+              </div>
+              <div className="input-group">
+                <label className="input-label" htmlFor="savings-withdrawal-date">Withdrawal Date *</label>
+                <input id="savings-withdrawal-date" type="date" className="input-field" max={moment().format('YYYY-MM-DD')} required value={withdrawalForm.withdrawalDate} onChange={(event) => setWithdrawalForm({ ...withdrawalForm, withdrawalDate: event.target.value })} />
+              </div>
+              <div className="input-group">
+                <label className="input-label" htmlFor="savings-withdrawal-reason">Reason *</label>
+                <input id="savings-withdrawal-reason" className="input-field" required maxLength="300" value={withdrawalForm.reason} onChange={(event) => setWithdrawalForm({ ...withdrawalForm, reason: event.target.value })} placeholder="e.g. Medical expenses" />
+              </div>
+              <div className="input-group">
+                <label className="input-label" htmlFor="savings-withdrawal-method">Payment Method *</label>
+                <select id="savings-withdrawal-method" className="input-field" value={withdrawalForm.paymentMethod} onChange={(event) => setWithdrawalForm({ ...withdrawalForm, paymentMethod: event.target.value })}>
+                  <option value="cash">Cash</option>
+                  <option value="bank">Bank transfer</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div className="input-group">
+                <label className="input-label" htmlFor="savings-withdrawal-reference">Reference Number</label>
+                <input id="savings-withdrawal-reference" className="input-field" maxLength="100" value={withdrawalForm.referenceNumber} onChange={(event) => setWithdrawalForm({ ...withdrawalForm, referenceNumber: event.target.value })} placeholder="Receipt or bank reference" />
+              </div>
+              <div className="input-group">
+                <label className="input-label" htmlFor="savings-withdrawal-note">Note</label>
+                <input id="savings-withdrawal-note" className="input-field" maxLength="1000" value={withdrawalForm.note} onChange={(event) => setWithdrawalForm({ ...withdrawalForm, note: event.target.value })} placeholder="Optional additional details" />
+              </div>
+              <button type="submit" className="btn savings-withdrawal-button" style={{ width: '100%' }} disabled={withdrawalLoading || (userSavingsDetail?.totalSavings || 0) <= 0}>
+                {withdrawalLoading ? 'Recording...' : 'Record Withdrawal'}
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
@@ -438,7 +552,7 @@ const ManageSavings = () => {
             maxWidth: '440px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
           }}>
             <h3 id="delete-savings-modal-title" style={{ margin: '0 0 0.25rem', color: '#dc2626', fontSize: '1.1rem' }}>
-              Delete Savings Payment
+              Delete Savings {deleteModal.payment.transactionType === 'withdrawal' ? 'Withdrawal' : 'Deposit'}
             </h3>
             <p style={{ margin: '0 0 1.25rem', fontSize: '0.85rem', color: '#64748b' }}>
               This action is permanent and cannot be undone. Savings total will be recalculated.
@@ -451,16 +565,16 @@ const ManageSavings = () => {
               fontSize: '0.88rem',
             }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
-                <span style={{ color: '#64748b' }}>Week Of</span>
-                <span style={{ fontWeight: 600 }}>{moment(deleteModal.payment.weekStartDate).format('MMM Do YYYY')}</span>
-                <span style={{ color: '#64748b' }}>Paid On</span>
-                <span>{moment(deleteModal.payment.paidOn).format('MMM Do YYYY')}</span>
+                <span style={{ color: '#64748b' }}>Type</span>
+                <span style={{ fontWeight: 600 }}>{deleteModal.payment.transactionType === 'withdrawal' ? 'Withdrawal' : 'Deposit'}</span>
+                <span style={{ color: '#64748b' }}>Date</span>
+                <span>{moment(deleteModal.payment.transactionDate).format('MMM Do YYYY')}</span>
                 <span style={{ color: '#64748b' }}>Amount</span>
                 <span style={{ fontWeight: 700, color: '#dc2626' }}>₹{deleteModal.payment.amount.toFixed(2)}</span>
-                {deleteModal.payment.note && (
+                {(deleteModal.payment.reason || deleteModal.payment.note) && (
                   <>
-                    <span style={{ color: '#64748b' }}>Note</span>
-                    <span style={{ wordBreak: 'break-word' }}>{deleteModal.payment.note}</span>
+                    <span style={{ color: '#64748b' }}>Reason / Note</span>
+                    <span style={{ wordBreak: 'break-word' }}>{deleteModal.payment.reason || deleteModal.payment.note}</span>
                   </>
                 )}
               </div>

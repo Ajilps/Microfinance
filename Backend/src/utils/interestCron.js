@@ -1,71 +1,153 @@
 import cron from "node-cron";
-import LoanTransaction from "../models/loanModel.js";
-import User from "../models/userModel.js";
-import { calculateInterestPeriods } from "../controllers/loanController.js";
+import { applyDueInterestForAllUsers } from "../services/interestAutomationService.js";
 
-const applyDueInterest = async (toDate = new Date()) => {
-  const users = await User.find({ role: "user" }).select("_id");
-  let periodsApplied = 0;
+const DEFAULT_SCHEDULE = "10 0 * * *";
+const DEFAULT_TIMEZONE = "Asia/Kolkata";
 
-  for (const user of users) {
-    const transactions = await LoanTransaction.find({ user: user._id }).sort({
-      date: 1,
-    });
+let activeRun = null;
+let scheduledTask = null;
+const automationState = {
+  enabled: false,
+  running: false,
+  schedule: DEFAULT_SCHEDULE,
+  timezone: DEFAULT_TIMEZONE,
+  runOnStartup: true,
+  lastTrigger: null,
+  lastStartedAt: null,
+  lastCompletedAt: null,
+  lastResult: null,
+  lastError: null,
+};
 
-    const duePeriods = calculateInterestPeriods(transactions, toDate).filter(
-      (period) => !period.alreadyRecorded && !period.isPartial,
-    );
+const enabledBy = (value, defaultValue = true) => {
+  if (value === undefined) return defaultValue;
+  return String(value).toLowerCase() !== "false";
+};
 
-    for (const period of duePeriods) {
-      try {
-        await LoanTransaction.create({
-          user: user._id,
-          type: "interest",
-          amount: period.interestAmount,
-          date: period.periodEnd,
-          note: `Automatic interest: 1% of ₹${period.principalBalance.toFixed(2)} for ${period.periodStart.toLocaleDateString("en-IN")} – ${period.periodEnd.toLocaleDateString("en-IN")}`,
-          interestPeriod: {
-            periodStart: period.periodStart,
-            periodEnd: period.periodEnd,
-            principalBalance: period.principalBalance,
-            interestRate: period.interestRate,
-          },
-        });
-        periodsApplied += 1;
-      } catch (error) {
-        // Another server instance may have inserted the same period first.
-        if (error.code !== 11000) throw error;
-      }
-    }
+const getInterestAutomationConfig = (environment = process.env) => {
+  const requestedSchedule =
+    environment.INTEREST_CRON_SCHEDULE || DEFAULT_SCHEDULE;
+  const schedule = cron.validate(requestedSchedule)
+    ? requestedSchedule
+    : DEFAULT_SCHEDULE;
+
+  return {
+    enabled: enabledBy(environment.INTEREST_CRON_ENABLED),
+    runOnStartup: enabledBy(environment.INTEREST_CRON_RUN_ON_STARTUP),
+    schedule,
+    requestedSchedule,
+    timezone: environment.INTEREST_CRON_TIMEZONE || DEFAULT_TIMEZONE,
+  };
+};
+
+const getInterestAutomationStatus = () => ({
+  ...automationState,
+  nextRunAt: scheduledTask?.getNextRun?.() || null,
+});
+
+const runInterestAutomation = async ({
+  trigger = "scheduled",
+  toDate = new Date(),
+} = {}) => {
+  if (activeRun) {
+    return {
+      skipped: true,
+      reason: "An interest automation run is already in progress",
+    };
   }
 
-  return periodsApplied;
+  automationState.running = true;
+  automationState.lastTrigger = trigger;
+  automationState.lastStartedAt = new Date();
+  automationState.lastError = null;
+
+  activeRun = applyDueInterestForAllUsers({ toDate });
+  try {
+    const result = await activeRun;
+    automationState.lastResult = result;
+    automationState.lastCompletedAt = new Date();
+    return { skipped: false, ...result };
+  } catch (error) {
+    automationState.lastError = error.message;
+    automationState.lastCompletedAt = new Date();
+    throw error;
+  } finally {
+    automationState.running = false;
+    activeRun = null;
+  }
+};
+
+const logAutomationResult = (trigger, result) => {
+  if (result.skipped) {
+    console.log(`[InterestAutomation] ${trigger} run skipped: ${result.reason}`);
+    return;
+  }
+  console.log(
+    `[InterestAutomation] ${trigger}: scanned ${result.usersScanned} member ledger(s), found ${result.duePeriodsFound} due period(s), applied ${result.periodsApplied} (${result.totalApplied.toFixed(2)})`,
+  );
+};
+
+const executeAndLog = async (trigger) => {
+  try {
+    const result = await runInterestAutomation({ trigger });
+    logAutomationResult(trigger, result);
+  } catch (error) {
+    console.error(`[InterestAutomation] ${trigger} run failed:`, error.message);
+  }
 };
 
 const startInterestCron = () => {
-  if (process.env.INTEREST_CRON_ENABLED === "false") {
+  const config = getInterestAutomationConfig();
+  Object.assign(automationState, {
+    enabled: config.enabled,
+    schedule: config.schedule,
+    timezone: config.timezone,
+    runOnStartup: config.runOnStartup,
+  });
+
+  if (!config.enabled) {
     console.log("Automatic interest scheduler disabled");
     return null;
   }
 
-  const timezone = process.env.INTEREST_CRON_TIMEZONE || "Asia/Kolkata";
-  const task = cron.schedule(
-    "0 0 * * *",
-    async () => {
-      try {
-        const periodsApplied = await applyDueInterest();
-        console.log(
-          `[InterestCron] Applied ${periodsApplied} due interest period(s)`,
-        );
-      } catch (error) {
-        console.error("[InterestCron] Failed:", error.message);
-      }
+  if (config.requestedSchedule !== config.schedule) {
+    console.warn(
+      `[InterestAutomation] Invalid INTEREST_CRON_SCHEDULE "${config.requestedSchedule}"; using ${config.schedule}`,
+    );
+  }
+
+  scheduledTask?.stop();
+  scheduledTask = cron.schedule(
+    config.schedule,
+    () => executeAndLog("scheduled"),
+    {
+      timezone: config.timezone,
+      noOverlap: true,
+      name: "microfinance-interest-automation",
     },
-    { timezone },
   );
 
-  console.log(`Automatic interest scheduler started (${timezone})`);
-  return task;
+  console.log(
+    `Automatic interest scheduler started (${config.schedule}, ${config.timezone})`,
+  );
+
+  // A deployment may sleep or restart at the scheduled time. This catch-up run
+  // makes startup safe: atomic period upserts make it a no-op when already done.
+  if (config.runOnStartup) void executeAndLog("startup");
+
+  return scheduledTask;
 };
 
-export { applyDueInterest, startInterestCron };
+const stopInterestCron = () => {
+  scheduledTask?.stop();
+  scheduledTask = null;
+  automationState.enabled = false;
+};
+
+export {
+  getInterestAutomationConfig,
+  getInterestAutomationStatus,
+  runInterestAutomation,
+  startInterestCron,
+  stopInterestCron,
+};

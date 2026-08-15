@@ -8,6 +8,7 @@ import mongoose from "mongoose";
  *   repayment   → user paid back money (decreases principal OR interest balance)
  *   interest    → 1% of PRINCIPAL recorded every 28 days (never added to principal)
  *   fine        → optional penalty added by admin (increases interest balance)
+ *   closure     → full principal + interest settlement that closes a loan cycle
  *
  * Key design principle:
  *   - Principal balance = sum(loan) - sum(repayment where paymentTarget='principal')
@@ -23,7 +24,7 @@ const loanTransactionSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["loan", "repayment", "interest", "fine"],
+      enum: ["loan", "repayment", "interest", "fine", "closure"],
       required: [true, "Transaction type is required"],
     },
     amount: {
@@ -49,9 +50,37 @@ const loanTransactionSchema = new mongoose.Schema(
       principalBalance: { type: Number, default: null },
       interestRate: { type: Number, default: 0.01 }, // 1% default
     },
+    // One atomic, auditable settlement created only by the Close Loan workflow.
+    closureDetails: {
+      principalPaid: { type: Number, default: null },
+      existingInterestPaid: { type: Number, default: null },
+      interestCharged: { type: Number, default: null },
+      interestPaid: { type: Number, default: null },
+      totalPaid: { type: Number, default: null },
+      closedAt: { type: Date, default: null },
+      interestPeriods: [
+        {
+          _id: false,
+          periodStart: { type: Date, required: true },
+          periodEnd: { type: Date, required: true },
+          principalBalance: { type: Number, required: true },
+          interestRate: { type: Number, default: 0.01 },
+          interestAmount: { type: Number, required: true },
+          daysInPeriod: { type: Number, required: true },
+          isPartial: { type: Boolean, default: true },
+        },
+      ],
+    },
+    // Derived from the member and active loan-cycle tip for duplicate protection.
+    closureKey: { type: String, default: null },
     note: {
       type: String,
       trim: true,
+    },
+    entrySource: {
+      type: String,
+      enum: ["manual", "automatic"],
+      default: "manual",
     },
     recordedBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -83,6 +112,18 @@ loanTransactionSchema.index(
       "interestPeriod.periodStart": { $type: "date" },
     },
     name: "unique_interest_period_per_user",
+  },
+);
+
+loanTransactionSchema.index(
+  { closureKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      type: "closure",
+      closureKey: { $type: "string" },
+    },
+    name: "unique_loan_cycle_closure",
   },
 );
 

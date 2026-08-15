@@ -2,8 +2,9 @@ import { Parser } from "json2csv";
 
 import LoanTransaction from "../models/loanModel.js";
 import SavingsPayment from "../models/savingsModel.js";
+import SavingsWithdrawal from "../models/savingsWithdrawalModel.js";
 import User from "../models/userModel.js";
-import { computeLoanSummary } from "./loanController.js";
+import { computeLoanSummary } from "../services/loanLedgerService.js";
 
 const REPORT_SCOPES = new Set(["monthly", "all"]);
 
@@ -136,39 +137,73 @@ const buildLoanReport = ({ users, transactions, period }) => {
   };
 };
 
-const buildSavingsReport = ({ users, payments, period }) => {
+const buildSavingsReport = ({
+  users,
+  payments,
+  withdrawals = [],
+  period,
+}) => {
   const grouped = groupByUser(payments);
+  const withdrawalsGrouped = groupByUser(withdrawals);
 
   const rows = users.map((user) => {
     const userPayments = grouped.get(String(user._id)) || [];
+    const userWithdrawals = withdrawalsGrouped.get(String(user._id)) || [];
     const activity = userPayments.filter((payment) =>
       isInPeriod(payment.paidOn, period),
     );
     const balancePayments = userPayments.filter((payment) =>
       isIncludedInBalance(payment.paidOn, period),
     );
+    const withdrawalActivity = userWithdrawals.filter((withdrawal) =>
+      isInPeriod(withdrawal.withdrawalDate, period),
+    );
+    const balanceWithdrawals = userWithdrawals.filter((withdrawal) =>
+      isIncludedInBalance(withdrawal.withdrawalDate, period),
+    );
     const amountSaved = activity.reduce(
       (sum, payment) => sum + Number(payment.amount || 0),
       0,
     );
-    const savingsBalance = balancePayments.reduce(
-      (sum, payment) => sum + Number(payment.amount || 0),
+    const savingsBalance =
+      balancePayments.reduce(
+        (sum, payment) => sum + Number(payment.amount || 0),
+        0,
+      ) -
+      balanceWithdrawals.reduce(
+        (sum, withdrawal) => sum + Number(withdrawal.amount || 0),
+        0,
+      );
+    const amountWithdrawn = withdrawalActivity.reduce(
+      (sum, withdrawal) => sum + Number(withdrawal.amount || 0),
       0,
     );
     const lastPaidOn = balancePayments.reduce((latest, payment) => {
       const paidOn = new Date(payment.paidOn);
       return !latest || paidOn > latest ? paidOn : latest;
     }, null);
+    const lastWithdrawalOn = balanceWithdrawals.reduce((latest, withdrawal) => {
+      const date = new Date(withdrawal.withdrawalDate);
+      return !latest || date > latest ? date : latest;
+    }, null);
+    const lastActivityOn = [lastPaidOn, lastWithdrawalOn]
+      .filter(Boolean)
+      .sort((left, right) => right - left)[0] || null;
 
     return {
       userId: user._id,
       name: user.name,
       email: user.email,
       paymentCount: activity.length,
+      withdrawalCount: withdrawalActivity.length,
       amountSaved: roundMoney(amountSaved),
+      amountWithdrawn: roundMoney(amountWithdrawn),
+      netSavingsMovement: roundMoney(amountSaved - amountWithdrawn),
       savingsBalance: roundMoney(savingsBalance),
       savingsInterest: roundMoney(savingsBalance * 0.01),
       lastPaidOn,
+      lastWithdrawalOn,
+      lastActivityOn,
     };
   });
 
@@ -176,7 +211,10 @@ const buildSavingsReport = ({ users, payments, period }) => {
     rows,
     totals: sumRows(rows, [
       "paymentCount",
+      "withdrawalCount",
       "amountSaved",
+      "amountWithdrawn",
+      "netSavingsMovement",
       "savingsBalance",
       "savingsInterest",
     ]),
@@ -206,11 +244,18 @@ const getReportData = async (type, query) => {
     period.scope === "monthly"
       ? { paidOn: { $lt: period.endExclusive } }
       : { paidOn: { $lte: period.endExclusive } };
-  const payments = await SavingsPayment.find(dateQuery).sort({ paidOn: 1 });
+  const withdrawalDateQuery =
+    period.scope === "monthly"
+      ? { withdrawalDate: { $lt: period.endExclusive } }
+      : { withdrawalDate: { $lte: period.endExclusive } };
+  const [payments, withdrawals] = await Promise.all([
+    SavingsPayment.find(dateQuery).sort({ paidOn: 1 }),
+    SavingsWithdrawal.find(withdrawalDateQuery).sort({ withdrawalDate: 1 }),
+  ]);
   return {
     reportType: "savings",
     period,
-    ...buildSavingsReport({ users, payments, period }),
+    ...buildSavingsReport({ users, payments, withdrawals, period }),
   };
 };
 
@@ -258,11 +303,20 @@ const sendReportCsv = (type) => async (req, res) => {
             Name: row.name,
             Email: row.email,
             Payments: row.paymentCount,
+            Withdrawals: row.withdrawalCount,
             "Saved in Period (INR)": row.amountSaved,
+            "Withdrawn in Period (INR)": row.amountWithdrawn,
+            "Net Savings Movement (INR)": row.netSavingsMovement,
             "Savings Balance (INR)": row.savingsBalance,
             "Savings Interest 1% (INR)": row.savingsInterest,
             "Last Paid On": row.lastPaidOn
               ? new Date(row.lastPaidOn).toISOString().slice(0, 10)
+              : "",
+            "Last Withdrawal On": row.lastWithdrawalOn
+              ? new Date(row.lastWithdrawalOn).toISOString().slice(0, 10)
+              : "",
+            "Last Savings Activity On": row.lastActivityOn
+              ? new Date(row.lastActivityOn).toISOString().slice(0, 10)
               : "",
           },
     );

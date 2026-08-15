@@ -1,11 +1,6 @@
-import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
 import deleteUserData from "../utils/deleteUserData.js";
-
-// Helper
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-};
+import { generateToken } from "../utils/authToken.js";
 
 // @desc    Register a new user
 // @route   POST /api/users/register
@@ -28,7 +23,7 @@ const registerUser = async (req, res) => {
 
   // Public registration must never accept a privileged role from the client.
   const user = await User.create({ name, email, password, role: "user" });
-  const token = generateToken(user._id);
+  const token = generateToken(user);
 
   res.status(201).json({
     _id: user._id,
@@ -56,7 +51,7 @@ const loginUser = async (req, res) => {
     return res.status(401).json({ message: "Invalid credentials" });
   }
 
-  const token = generateToken(user._id);
+  const token = generateToken(user);
 
   res.json({
     _id: user._id,

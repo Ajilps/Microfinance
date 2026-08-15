@@ -5,8 +5,9 @@ import FinePayment from "../models/finePaymentModel.js";
 import LoanTransaction from "../models/loanModel.js";
 import ProfitDistribution from "../models/profitDistributionModel.js";
 import SavingsPayment from "../models/savingsModel.js";
+import SavingsWithdrawal from "../models/savingsWithdrawalModel.js";
 import User from "../models/userModel.js";
-import { computeLoanSummary } from "./loanController.js";
+import { computeLoanSummary } from "../services/loanLedgerService.js";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
@@ -114,7 +115,12 @@ const buildProfitSummary = ({
   };
 };
 
-const buildProfitAllocations = ({ users, savingsPayments, amount }) => {
+const buildProfitAllocations = ({
+  users,
+  savingsPayments,
+  savingsWithdrawals = [],
+  amount,
+}) => {
   const amountCents = Math.round(Number(amount || 0) * 100);
   const balances = new Map();
   for (const payment of savingsPayments) {
@@ -122,6 +128,13 @@ const buildProfitAllocations = ({ users, savingsPayments, amount }) => {
     balances.set(
       userId,
       (balances.get(userId) || 0) + Number(payment.amount || 0),
+    );
+  }
+  for (const withdrawal of savingsWithdrawals) {
+    const userId = String(withdrawal.user?._id || withdrawal.user);
+    balances.set(
+      userId,
+      (balances.get(userId) || 0) - Number(withdrawal.amount || 0),
     );
   }
 
@@ -181,6 +194,7 @@ const loadProfitData = async (asOfDate, requestedAmount) => {
     distributions,
     users,
     savingsPayments,
+    savingsWithdrawals,
     finePayments,
   ] =
     await Promise.all([
@@ -189,6 +203,7 @@ const loadProfitData = async (asOfDate, requestedAmount) => {
       ProfitDistribution.find({ distributionDate: dateFilter }),
       User.find({ role: "user" }).select("name email").sort({ name: 1 }),
       SavingsPayment.find({ paidOn: dateFilter }),
+      SavingsWithdrawal.find({ withdrawalDate: dateFilter }),
       FinePayment.find({ paidOn: dateFilter }),
     ]);
 
@@ -214,6 +229,7 @@ const loadProfitData = async (asOfDate, requestedAmount) => {
   const allocation = buildProfitAllocations({
     users,
     savingsPayments,
+    savingsWithdrawals,
     amount: roundMoney(parsedAmount),
   });
   const calculationKey = createDistributionCalculationKey({

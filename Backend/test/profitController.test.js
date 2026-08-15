@@ -70,17 +70,18 @@ test("profit allocations are proportional and preserve the exact cent total", ()
   const result = buildProfitAllocations({
     users,
     savingsPayments,
+    savingsWithdrawals: [{ user: "user-3", amount: 150 }],
     amount: 100,
   });
 
-  assert.equal(result.totalSavings, 600);
+  assert.equal(result.totalSavings, 450);
   assert.equal(
     result.allocations.reduce((sum, allocation) => sum + allocation.amount, 0),
     100,
   );
   assert.deepEqual(
     result.allocations.map((allocation) => allocation.amount),
-    [16.67, 33.33, 50],
+    [22.22, 44.45, 33.33],
   );
 });
 

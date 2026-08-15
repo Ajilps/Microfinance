@@ -33,6 +33,9 @@ const WeeklyTransactions = lazy(() => import('./pages/Admin/WeeklyTransactions')
 const ManageIncomeExpenses = lazy(() => import('./pages/Admin/ManageIncomeExpenses'));
 const BankTransactions = lazy(() => import('./pages/Admin/BankTransactions'));
 const ProfitDistribution = lazy(() => import('./pages/Admin/ProfitDistribution'));
+const FindUsers = lazy(() => import('./pages/Admin/FindUsers'));
+const UserWorkspace = lazy(() => import('./pages/Admin/UserWorkspace'));
+const AdminProfile = lazy(() => import('./pages/Admin/AdminProfile'));
 
 const App = () => {
   return (
@@ -77,6 +80,8 @@ const App = () => {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="find-user" element={<FindUsers />} />
+              <Route path="find-user/:userId" element={<UserWorkspace />} />
               <Route path="users" element={<ManageUsers />} />
               <Route path="loans" element={<ManageLoans />} />
               <Route path="savings" element={<ManageSavings />} />
@@ -86,6 +91,7 @@ const App = () => {
               <Route path="income-expenses" element={<ManageIncomeExpenses />} />
               <Route path="bank-transactions" element={<BankTransactions />} />
               <Route path="profit-distribution" element={<ProfitDistribution />} />
+              <Route path="profile" element={<AdminProfile />} />
             </Route>
           </Route>
 

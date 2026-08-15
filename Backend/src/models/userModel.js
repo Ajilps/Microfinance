@@ -26,6 +26,11 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user",
     },
+    tokenVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     unpaidInterest: {
       type: Number,
       default: 0,

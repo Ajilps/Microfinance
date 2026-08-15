@@ -19,7 +19,11 @@ const auditLogSchema = new mongoose.Schema(
     // What was done
     action: {
       type: String,
-      enum: ["DELETE_LOAN_TRANSACTION", "DELETE_SAVINGS_PAYMENT"],
+      enum: [
+        "DELETE_LOAN_TRANSACTION",
+        "DELETE_SAVINGS_PAYMENT",
+        "DELETE_SAVINGS_WITHDRAWAL",
+      ],
       required: true,
     },
 
@@ -41,6 +45,9 @@ const auditLogSchema = new mongoose.Schema(
       note: String,
       paymentTarget: String,     // loan transactions only
       interestPeriod: mongoose.Schema.Types.Mixed, // loan transactions only
+      reason: String,            // savings withdrawals only
+      paymentMethod: String,     // savings withdrawals only
+      referenceNumber: String,   // savings withdrawals only
     },
 
     // Balances as computed immediately before and after the deletion

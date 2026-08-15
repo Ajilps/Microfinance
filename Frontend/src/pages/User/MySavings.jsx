@@ -30,7 +30,7 @@ const MySavings = () => {
   if (error) return <div className="card" style={{ color: 'var(--danger)' }}>{error}</div>;
   if (!savingsData) return <div className="card">No savings data available.</div>;
 
-  const payments = savingsData.payments || [];
+  const payments = savingsData.transactions || [];
   const paginatedPayments = payments.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
@@ -49,6 +49,18 @@ const MySavings = () => {
             ₹{savingsData.totalSavings?.toFixed(2) || '0.00'}
           </div>
         </div>
+        <div className="stat-card">
+          <div className="stat-title">Total Deposited</div>
+          <div className="stat-value" style={{ color: 'var(--secondary-color)' }}>
+            ₹{savingsData.totalDeposits?.toFixed(2) || '0.00'}
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-title">Total Withdrawn</div>
+          <div className="stat-value" style={{ color: 'var(--danger)' }}>
+            ₹{savingsData.totalWithdrawals?.toFixed(2) || '0.00'}
+          </div>
+        </div>
         <div className="stat-card" style={{ background: savingsData.currentWeekPaid ? '#dcfce7' : '#fee2e2' }}>
           <div className="stat-title" style={{ color: savingsData.currentWeekPaid ? '#166534' : '#991b1b' }}>Current Week Status</div>
           <div className="stat-value" style={{ color: savingsData.currentWeekPaid ? '#15803d' : '#b91c1c' }}>
@@ -58,28 +70,34 @@ const MySavings = () => {
       </div>
 
       <div className="table-container mt-4">
-        <h3 style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', margin: 0 }}>Savings History</h3>
+        <h3 style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', margin: 0 }}>Savings Ledger</h3>
         {payments.length > 0 ? (
           <>
             <div className="table-scroll">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Week Starting</th>
-                    <th>Paid On</th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Week / Method</th>
                     <th>Amount</th>
-                    <th>Note</th>
+                    <th>Reason / Note</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedPayments.map((payment, index) => (
-                    <tr key={index}>
-                      <td>{moment(payment.weekStartDate).format('MMMM Do YYYY')}</td>
-                      <td>{moment(payment.paidOn).format('MMMM Do YYYY')}</td>
-                      <td style={{ color: 'var(--secondary-color)', fontWeight: 500 }}>
-                        ₹{payment.amount}
+                  {paginatedPayments.map((payment) => (
+                    <tr key={`${payment.transactionType}-${payment._id}`}>
+                      <td>{moment(payment.transactionDate).format('MMMM Do YYYY')}</td>
+                      <td>
+                        <span className={`savings-type-badge ${payment.transactionType}`}>
+                          {payment.transactionType === 'withdrawal' ? 'Withdrawal' : 'Deposit'}
+                        </span>
                       </td>
-                      <td style={{ color: '#64748b' }}>{payment.note || '-'}</td>
+                      <td>{payment.transactionType === 'withdrawal' ? payment.paymentMethod : moment(payment.weekStartDate).format('MMMM Do YYYY')}</td>
+                      <td style={{ color: payment.transactionType === 'withdrawal' ? 'var(--danger)' : 'var(--secondary-color)', fontWeight: 600 }}>
+                        {payment.transactionType === 'withdrawal' ? '−' : '+'}₹{Number(payment.amount || 0).toFixed(2)}
+                      </td>
+                      <td style={{ color: '#64748b' }}>{payment.reason || payment.note || '-'}{payment.referenceNumber ? ` · ${payment.referenceNumber}` : ''}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -93,7 +111,7 @@ const MySavings = () => {
             />
           </>
         ) : (
-          <p style={{ padding: '1.5rem', color: '#64748b' }}>No savings payment history found.</p>
+          <p style={{ padding: '1.5rem', color: '#64748b' }}>No savings transaction history found.</p>
         )}
       </div>
     </div>

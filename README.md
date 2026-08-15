@@ -33,6 +33,7 @@ A full-stack web application for managing microfinance operations, including use
 ### Admin
 
 - **Analytics Dashboard** — Live financial KPIs plus responsive charts for six-month fund activity, loan principal position, savings leaders, attendance trends, and bank movement.
+- **Find by User** — Search members and open one consolidated workspace for savings, loans, calculated interest, repayments, fines, profit allocations, charts, and exact-date attendance history.
 - **User Management** — Create, view, update, and deactivate member accounts.
 - **Savings Management** — Record and review deposit/withdrawal transactions for any member.
 - **Loan Management** — Issue loans, record repayments, and monitor outstanding balances.
@@ -259,6 +260,12 @@ JWT_SECRET=your_strong_secret_key_here
 ADMIN_NAME=Admin
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=Admin@1234
+
+# Idempotent interest automation
+INTEREST_CRON_ENABLED=true
+INTEREST_CRON_RUN_ON_STARTUP=true
+INTEREST_CRON_SCHEDULE=10 0 * * *
+INTEREST_CRON_TIMEZONE=Asia/Kolkata
 ```
 
 | Variable         | Required | Description                                                                |
@@ -270,6 +277,10 @@ ADMIN_PASSWORD=Admin@1234
 | `ADMIN_NAME`     | Optional | Display name for the auto-seeded admin account.                            |
 | `ADMIN_EMAIL`    | Optional | Email for the auto-seeded admin account.                                   |
 | `ADMIN_PASSWORD` | Optional | Password for the auto-seeded admin account.                                |
+| `INTEREST_CRON_ENABLED` | Optional | Enables automatic completed-period interest application. Defaults to `true`. |
+| `INTEREST_CRON_RUN_ON_STARTUP` | Optional | Runs a safe catch-up scan whenever the backend starts. Defaults to `true`. |
+| `INTEREST_CRON_SCHEDULE` | Optional | Cron schedule. Defaults to `10 0 * * *` (12:10 AM daily). |
+| `INTEREST_CRON_TIMEZONE` | Optional | Timezone used by the scheduler. Defaults to `Asia/Kolkata`. |
 
 The profit allocation preview is available by default, while recording a
 distribution is disabled. To enable its button, add this to `Frontend/.env`
@@ -293,6 +304,7 @@ VITE_ENABLE_PROFIT_DISTRIBUTION=true
 4. Use **Manage Loans** to disburse loans and record repayments.
 5. Use **Manage Attendance** to mark member presence and manage fines.
 6. Visit **Dashboard** for live portfolio KPIs and visual trends across savings, loans, attendance, and bank activity.
+7. Use **Find by User** when you want to review or update one member without moving between the separate management pages.
 
 ### User Workflow
 
@@ -343,7 +355,10 @@ curl -X POST http://localhost:4000/api/users/login \
 | ------ | ---------------------------- | ------ | ------------------------------- |
 | `GET`  | `/api/users/savings`         | User   | Get own savings transactions    |
 | `GET`  | `/api/admin/savings/:userId` | Admin  | Get savings for a specific user |
-| `POST` | `/api/admin/savings/:userId` | Admin  | Add a savings transaction       |
+| `POST` | `/api/admin/savings/:userId/payment` | Admin | Add a weekly savings deposit |
+| `POST` | `/api/admin/savings/:userId/withdrawal` | Admin | Record a savings withdrawal |
+| `PUT` | `/api/admin/savings/:userId/withdrawal/:withdrawalId` | Admin | Update a withdrawal |
+| `DELETE` | `/api/admin/savings/:userId/withdrawal/:withdrawalId` | Admin | Delete a withdrawal with audit history |
 
 #### Loans
 
@@ -367,6 +382,13 @@ curl -X POST http://localhost:4000/api/users/login \
 | ------ | ------------------------------- | ------ | -------------------------------------------------------------------- |
 | `GET`  | `/api/admin/dashboard/overview` | Admin  | Get dashboard KPIs, six-month trends, savings leaders, and activity. |
 
+#### Member Workspace
+
+| Method | Endpoint                                  | Access | Description                                                            |
+| ------ | ----------------------------------------- | ------ | ---------------------------------------------------------------------- |
+| `GET`  | `/api/admin/members`                      | Admin  | List members with savings, outstanding balances, and attendance rates. |
+| `GET`  | `/api/admin/members/:userId/workspace`    | Admin  | Get one member's complete histories, summaries, timeline, and charts.   |
+
 > See [`Backend/API_DOCUMENTATION.md`](Backend/API_DOCUMENTATION.md) for the complete request/response schemas and all available endpoints.
 
 ---
@@ -387,7 +409,26 @@ server: {
 
 ### Interest Cron Job
 
-The automated interest scheduler runs daily at midnight (server time). It applies **1 % interest** to the outstanding loan balance of every member who has not received an interest charge in the last **28 days**. No configuration is required — it starts automatically when the backend server starts. The logic lives in [`Backend/src/utils/interestCron.js`](Backend/src/utils/interestCron.js).
+Automatic interest performs a catch-up scan when the backend starts and then
+runs daily at **12:10 AM Asia/Kolkata** by default. It reads the loan ledger in
+one batch, calculates the existing **1% per completed 28-day period** rule, and
+uses atomic MongoDB upserts keyed by member and period start. Re-running the job,
+running multiple server instances, or using the manual **Apply unrecorded**
+button at the same time cannot create the same interest period twice.
+
+Only completed periods are written. Partial periods remain projections. The
+existing manual Calculate, single-period Record, and Apply-all controls remain
+available. Configure the schedule with the environment variables above. The
+scheduler lives in [`Backend/src/utils/interestCron.js`](Backend/src/utils/interestCron.js),
+and the shared persistence logic lives in
+[`Backend/src/services/interestAutomationService.js`](Backend/src/services/interestAutomationService.js).
+
+Admins can use **Close loan** in either Manage Loans or Find by User. It previews
+the full payment through a selected date, including any missed completed periods
+and the prorated final partial period. Confirming it means the displayed cash was
+received: one auditable closure entry pays the remaining principal and interest,
+sets both balances to zero, and prevents that loan cycle from being closed or
+charged for the partial period twice. Any later loan starts a fresh 28-day cycle.
 
 ### CORS
 

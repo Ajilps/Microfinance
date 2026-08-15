@@ -5,6 +5,25 @@ Base URL: `http://localhost:4000`
 > In the Docker development stack, the backend is exposed at
 > `http://localhost:4001` by default.
 
+## Admin Profile
+
+These routes act only on the currently authenticated administrator and require
+an admin Bearer token.
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/admin/profile` | Return the logged-in admin's profile. |
+| `PUT` | `/api/admin/profile` | Update the logged-in admin's name and email address. |
+| `PUT` | `/api/admin/profile/password` | Verify the current password and set a strong new password. |
+
+Profile updates accept `name` and `email`. Password changes accept
+`currentPassword` and `newPassword`; the new password must contain at least
+eight characters, uppercase and lowercase letters, a number, and a special
+character. Successful updates return a refreshed token. A password change also
+increments the account's token version, immediately invalidating sessions on
+other browsers and devices while allowing the requesting browser to continue
+with the newly returned token.
+
 ## Dashboard Analytics (Admin)
 
 All dashboard analytics routes require an admin Bearer token.
@@ -27,6 +46,68 @@ The response contains:
 
 Money values are returned as numbers rounded to two decimal places. Rates are
 percentages rounded to two decimal places.
+
+## Member Workspace (Admin)
+
+These endpoints power the **Find by User** section and require an admin Bearer
+token.
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/admin/members` | Return every member with current savings, principal due, interest due, attendance rate, and latest activity date. |
+| `GET` | `/api/admin/members/:userId/workspace` | Return the complete workspace for one member. |
+
+The workspace response includes the member profile, current savings and loan
+summary, attendance and fine summary, active profit allocations, twelve-month
+chart series, complete savings/loan/attendance/fine histories, profit allocation
+history, and one combined financial activity timeline.
+
+The page records updates through the existing savings, loan, calculated-interest,
+attendance, and attendance-fine endpoints. This means repayment balance checks,
+weekly savings uniqueness, interest-period idempotency, and attendance weekly
+upserts behave identically in both the dedicated management pages and the member
+workspace.
+
+## Interest Automation (Admin)
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/admin/interest-automation/status` | Return whether automation is enabled, its schedule/timezone, running state, next run, and last result/error. |
+
+The backend runs a startup catch-up scan by default and then follows
+`INTEREST_CRON_SCHEDULE`. It writes only completed, unrecorded 28-day periods.
+Manual and automatic application share the same server-side calculation and
+atomic upsert path. The unique database index on member plus interest-period
+start provides an additional concurrency guard.
+
+## Loan Closure (Admin)
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/admin/loans/:userId/close/preview?closeDate=YYYY-MM-DD` | Preview the full settlement without changing the ledger. |
+| `POST` | `/api/admin/loans/:userId/close` | Apply missed completed interest and record the full settlement. |
+
+The preview returns the outstanding principal, existing unpaid interest/fines,
+unrecorded completed-period interest, final partial-period interest, and total
+cash to collect. Partial interest is prorated as
+`principal at period start × 1% × elapsed days ÷ 28`.
+
+The close request must use the total from a current preview:
+
+```json
+{
+  "closeDate": "2026-08-14",
+  "expectedTotal": 10150,
+  "note": "Receipt 1042"
+}
+```
+
+Completed periods are posted through the same idempotent interest service used
+by the scheduler. The final partial period and complete payment are stored in a
+single `closure` ledger record. A unique loan-cycle key prevents a concurrent or
+repeated request from closing the same cycle twice. A successful response has
+zero principal, interest, and total outstanding balances. A later disbursement
+starts a new independent 28-day interest cycle.
 
 ## Finance Routes (Admin)
 
@@ -945,6 +1026,34 @@ Authorization: Bearer <admin_jwt_token>
 ## Savings Management (Admin)
 
 > Savings interest is **admin-only** — users cannot see it.
+
+Savings balances are calculated as `total deposits − total withdrawals`.
+Withdrawals are separate audited ledger records, so the existing one-deposit-
+per-week rule is unchanged.
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/api/admin/savings/:userId/withdrawal` | Record a savings withdrawal. |
+| `PUT` | `/api/admin/savings/:userId/withdrawal/:withdrawalId` | Correct an existing withdrawal. |
+| `DELETE` | `/api/admin/savings/:userId/withdrawal/:withdrawalId` | Delete a withdrawal with an audit record. |
+
+Create and update withdrawal bodies use:
+
+```json
+{
+  "amount": 500,
+  "withdrawalDate": "2026-08-14",
+  "reason": "Medical expenses",
+  "paymentMethod": "bank",
+  "referenceNumber": "TXN-1042",
+  "note": "Optional additional details"
+}
+```
+
+`amount`, `withdrawalDate`, and `reason` are required. `paymentMethod` is
+`cash`, `bank`, or `other`. A withdrawal is rejected if it exceeds the savings
+available on the selected date. Editing or deleting an earlier deposit is also
+rejected when a later withdrawal depends on that deposit.
 
 ### Record Weekly Savings Payment
 

@@ -51,6 +51,13 @@ test("dashboard snapshot calculates KPIs and chart series from ledger data", () 
       { user: "user-1", amount: 150, paidOn: new Date("2026-04-05") },
       { user: "user-2", amount: 250, paidOn: new Date("2026-04-12") },
     ],
+    savingsWithdrawals: [
+      {
+        user: "user-2",
+        amount: 100,
+        withdrawalDate: new Date("2026-04-20"),
+      },
+    ],
     attendance: [
       {
         weekStartDate: new Date("2026-08-02"),
@@ -93,7 +100,7 @@ test("dashboard snapshot calculates KPIs and chart series from ledger data", () 
 
   assert.deepEqual(snapshot.summary, {
     memberCount: 2,
-    totalSavings: 500,
+    totalSavings: 400,
     totalLoanDisbursed: 1_000,
     principalOutstanding: 800,
     unpaidInterest: 50,
@@ -101,7 +108,7 @@ test("dashboard snapshot calculates KPIs and chart series from ledger data", () 
     availableProfit: 50,
     interestCollected: 50,
     principalCollectionRate: 20,
-    savingsCoverage: 62.5,
+    savingsCoverage: 50,
     latestAttendanceRate: 50,
   });
   assert.deepEqual(snapshot.loanComposition, [
@@ -109,7 +116,9 @@ test("dashboard snapshot calculates KPIs and chart series from ledger data", () 
     { name: "Principal outstanding", value: 800 },
   ]);
   assert.equal(snapshot.monthlyActivity[0].loansDisbursed, 1_000);
-  assert.equal(snapshot.monthlyActivity[1].savings, 400);
+  assert.equal(snapshot.monthlyActivity[1].savings, 300);
+  assert.equal(snapshot.monthlyActivity[1].savingsDeposits, 400);
+  assert.equal(snapshot.monthlyActivity[1].savingsWithdrawals, 100);
   assert.equal(snapshot.bankTrend[0].balance, 600);
   assert.equal(snapshot.bankTrend[1].balance, 550);
   assert.equal(snapshot.attendanceTrend.at(-1).present, 1);

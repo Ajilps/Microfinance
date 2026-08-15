@@ -23,6 +23,8 @@ import {
   applyUnrecordedInterest,
   recordInterestEntry,
   calculateInterestToDate,
+  previewLoanClosure,
+  closeLoan,
   getUserLoanDetail,
   getAllUsersLoanOverview,
   deleteLoanTransaction,
@@ -34,6 +36,11 @@ import {
   getAllUsersSavingsOverview,
   deleteSavingsPayment,
 } from "../controllers/savingsController.js";
+import {
+  deleteSavingsWithdrawal,
+  recordSavingsWithdrawal,
+  updateSavingsWithdrawal,
+} from "../controllers/savingsWithdrawalController.js";
 import {
   createExtraTransaction,
   getExtraTransactions,
@@ -61,8 +68,27 @@ import {
 import { adminProtect } from "../middleware/adminMiddleware.js";
 import asyncHandler from "../middleware/asyncHandler.js";
 import { getDashboardOverview } from "../controllers/dashboardController.js";
+import {
+  getMemberDirectory,
+  getMemberWorkspace,
+} from "../controllers/memberWorkspaceController.js";
+import { getInterestAutomationStatus } from "../utils/interestCron.js";
+import {
+  changeAdminPassword,
+  getAdminProfile,
+  updateAdminProfile,
+} from "../controllers/adminProfileController.js";
 
 const router = express.Router();
+
+// ─── Current Admin Profile ──────────────────────────────────────────────────
+router.get("/profile", adminProtect, asyncHandler(getAdminProfile));
+router.put("/profile", adminProtect, asyncHandler(updateAdminProfile));
+router.put(
+  "/profile/password",
+  adminProtect,
+  asyncHandler(changeAdminPassword),
+);
 
 // ─── Dashboard Analytics ─────────────────────────────────────────────────────
 router.get(
@@ -70,6 +96,17 @@ router.get(
   adminProtect,
   asyncHandler(getDashboardOverview),
 );
+
+// ─── Member Workspace ───────────────────────────────────────────────────────
+router.get("/members", adminProtect, asyncHandler(getMemberDirectory));
+router.get(
+  "/members/:userId/workspace",
+  adminProtect,
+  asyncHandler(getMemberWorkspace),
+);
+router.get("/interest-automation/status", adminProtect, (req, res) => {
+  res.json(getInterestAutomationStatus());
+});
 
 // ─── User Management ──────────────────────────────────────────────────────────
 router.get("/users", adminProtect, getAllUsers);
@@ -113,6 +150,16 @@ router.get(
   adminProtect,
   calculateInterestToDate,
 );
+router.get(
+  "/loans/:userId/close/preview",
+  adminProtect,
+  asyncHandler(previewLoanClosure),
+);
+router.post(
+  "/loans/:userId/close",
+  adminProtect,
+  asyncHandler(closeLoan),
+);
 // POST   /api/admin/loans/:userId/transaction — add loan/repayment/fine transaction
 router.post("/loans/:userId/transaction", adminProtect, addLoanTransaction);
 // POST   /api/admin/loans/:userId/interest — record a 4-week interest entry
@@ -133,6 +180,21 @@ router.delete(
 // ─── Savings Management ───────────────────────────────────────────────────────
 // POST   /api/admin/savings/:userId/payment — record weekly savings payment
 router.post("/savings/:userId/payment", adminProtect, recordSavingsPayment);
+router.post(
+  "/savings/:userId/withdrawal",
+  adminProtect,
+  asyncHandler(recordSavingsWithdrawal),
+);
+router.put(
+  "/savings/:userId/withdrawal/:withdrawalId",
+  adminProtect,
+  asyncHandler(updateSavingsWithdrawal),
+);
+router.delete(
+  "/savings/:userId/withdrawal/:withdrawalId",
+  adminProtect,
+  asyncHandler(deleteSavingsWithdrawal),
+);
 // PUT    /api/admin/savings/:userId/payment/:paymentId — update a savings entry
 router.put(
   "/savings/:userId/payment/:paymentId",

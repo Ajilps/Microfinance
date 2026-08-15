@@ -124,10 +124,13 @@ const ManageReports = () => {
           ['Total Outstanding', totals.totalOutstanding],
         ]
       : [
-          ['Saved in Period', totals.amountSaved],
+          ['Deposited in Period', totals.amountSaved],
+          ['Withdrawn in Period', totals.amountWithdrawn],
+          ['Net Savings Movement', totals.netSavingsMovement],
           ['Savings Balance', totals.savingsBalance],
           ['Savings Interest (1%)', totals.savingsInterest],
-          ['Payments in Period', totals.paymentCount, false],
+          ['Deposits in Period', totals.paymentCount, false],
+          ['Withdrawals in Period', totals.withdrawalCount, false],
         ];
 
   return (
@@ -320,11 +323,14 @@ const ManageReports = () => {
                       <thead>
                         <tr>
                           <th>Member</th>
-                          <th>Payments</th>
-                          <th>Saved in Period</th>
+                          <th>Deposits</th>
+                          <th>Withdrawals</th>
+                          <th>Deposited in Period</th>
+                          <th>Withdrawn in Period</th>
+                          <th>Net Movement</th>
                           <th>Savings Balance</th>
                           <th>Interest (1%)</th>
-                          <th>Last Paid On</th>
+                          <th>Last Activity</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -335,10 +341,13 @@ const ManageReports = () => {
                               <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{row.email}</div>
                             </td>
                             <td>{row.paymentCount}</td>
+                            <td>{row.withdrawalCount}</td>
                             <td>{formatMoney(row.amountSaved)}</td>
+                            <td>{formatMoney(row.amountWithdrawn)}</td>
+                            <td>{formatMoney(row.netSavingsMovement)}</td>
                             <td style={{ fontWeight: 700 }}>{formatMoney(row.savingsBalance)}</td>
                             <td>{formatMoney(row.savingsInterest)}</td>
-                            <td>{row.lastPaidOn ? moment.utc(row.lastPaidOn).format('DD MMM YYYY') : '—'}</td>
+                            <td>{row.lastActivityOn ? moment.utc(row.lastActivityOn).format('DD MMM YYYY') : '—'}</td>
                           </tr>
                         ))}
                       </tbody>

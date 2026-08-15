@@ -82,12 +82,30 @@ test("weekly report separates cash movement from accrued charges", () => {
         date: new Date("2026-08-12T00:00:00Z"),
         user: { name: "Member One" },
       },
+      {
+        _id: "closure-1",
+        type: "closure",
+        amount: 770,
+        date: new Date("2026-08-13T00:00:00Z"),
+        user: { name: "Member Two" },
+        recordedBy: { name: "Admin" },
+      },
     ],
     savings: [
       {
         _id: "saving-1",
         amount: 100,
         paidOn: new Date("2026-08-12T00:00:00Z"),
+        user: { name: "Member One" },
+        recordedBy: { name: "Admin" },
+      },
+    ],
+    savingsWithdrawals: [
+      {
+        _id: "saving-withdrawal-1",
+        amount: 60,
+        withdrawalDate: new Date("2026-08-14T00:00:00Z"),
+        reason: "School expenses",
         user: { name: "Member One" },
         recordedBy: { name: "Admin" },
       },
@@ -122,15 +140,27 @@ test("weekly report separates cash movement from accrued charges", () => {
   });
 
   assert.deepEqual(report.totals, {
-    cashIncome: 420,
-    cashExpense: 1_040,
+    cashIncome: 1_190,
+    cashExpense: 1_100,
     nonCashCharges: 10,
-    transactionCount: 7,
+    transactionCount: 9,
   });
   assert.deepEqual(report.categoryTotals["Interest accrued"], {
     income: 0,
     expense: 0,
     nonCash: 10,
     total: 10,
+  });
+  assert.deepEqual(report.categoryTotals["Loan closure payment"], {
+    income: 770,
+    expense: 0,
+    nonCash: 0,
+    total: 770,
+  });
+  assert.deepEqual(report.categoryTotals["Savings withdrawal"], {
+    income: 0,
+    expense: 60,
+    nonCash: 0,
+    total: 60,
   });
 });

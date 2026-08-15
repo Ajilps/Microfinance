@@ -9,7 +9,7 @@ import mongoose from "mongoose";
  *   - weekStartDate → normalized to start of the week (for deduplication)
  *
  * Derived values (computed in controller):
- *   - totalSavings          = sum of all amounts for this user
+ *   - totalSavings          = deposits minus savings withdrawals
  *   - savingsInterest       = totalSavings × 0.01 (admin-only view)
  *   - currentWeekPaid       = whether a record exists for current week
  */

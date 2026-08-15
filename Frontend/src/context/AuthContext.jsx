@@ -34,6 +34,11 @@ export const AuthProvider = ({ children }) => {
     loadUser();
   }, [token, logout]);
 
+  useEffect(() => {
+    window.addEventListener('auth:unauthorized', logout);
+    return () => window.removeEventListener('auth:unauthorized', logout);
+  }, [logout]);
+
   const login = (userData, authToken) => {
     localStorage.setItem('token', authToken);
     localStorage.setItem('user', JSON.stringify(userData));

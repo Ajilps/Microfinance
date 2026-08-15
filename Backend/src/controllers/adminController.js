@@ -1,11 +1,6 @@
-import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
 import deleteUserData from "../utils/deleteUserData.js";
-
-// Helper
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-};
+import { generateToken } from "../utils/authToken.js";
 
 // @desc    Get all users
 // @route   GET /api/admin/users
@@ -121,7 +116,7 @@ const createAdmin = async (req, res) => {
   }
 
   const admin = await User.create({ name, email, password, role: "admin" });
-  const token = generateToken(admin._id);
+  const token = generateToken(admin);
 
   res.status(201).json({
     _id: admin._id,

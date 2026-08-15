@@ -89,7 +89,7 @@ const WeeklyTransactions = () => {
             <div className="stat-card">
               <div className="stat-title">Total Cash Out</div>
               <div className="stat-value" style={{ color: 'var(--rose-400)' }}>{money(totals.cashExpense)}</div>
-              <div className="stat-sub">Loans disbursed and other expenses</div>
+              <div className="stat-sub">Loans, savings withdrawals and other expenses</div>
             </div>
             <div className="stat-card">
               <div className="stat-title">Total Non-Cash</div>
@@ -202,7 +202,7 @@ const WeeklyTransactions = () => {
 
           <div className="alert" style={{ borderColor: 'rgba(56, 189, 248, 0.3)', background: 'rgba(56, 189, 248, 0.08)', color: 'var(--text-secondary)' }}>
             <span>ℹ️</span>
-            <span>Savings and repayments are shown as cash inflows, but they are not business revenue. Accrued interest and loan fines are shown separately because no cash moved when they were charged.</span>
+            <span>Savings deposits and repayments are cash inflows, while savings withdrawals are cash outflows; none are business revenue or expenses. Accrued interest and loan fines are separate because no cash moved when they were charged.</span>
           </div>
         </>
       )}

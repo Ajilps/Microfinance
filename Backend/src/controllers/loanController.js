@@ -1,185 +1,15 @@
 import LoanTransaction from "../models/loanModel.js";
 import User from "../models/userModel.js";
 import AuditLog from "../models/auditLogModel.js";
-
-// ─── Helper: compute separated principal and interest balances ─────────────────
-/**
- * Computes loan summary with STRICTLY SEPARATED principal and interest balances.
- *
- * Principal balance:
- *   = sum(loan disbursements) - sum(repayments where paymentTarget='principal')
- *
- * Interest balance:
- *   = sum(interest entries) + sum(fines) - sum(repayments where paymentTarget='interest')
- *
- * Interest is NEVER added to principal. Principal remains static unless a
- * direct principal repayment is made.
- */
-const computeLoanSummary = (transactions) => {
-  let totalDisbursed = 0;
-  let totalPrincipalRepaid = 0;
-  let totalInterestAccrued = 0;
-  let totalFines = 0;
-  let totalInterestRepaid = 0;
-
-  for (const tx of transactions) {
-    if (tx.type === "loan") {
-      totalDisbursed += tx.amount;
-    } else if (tx.type === "interest") {
-      totalInterestAccrued += tx.amount;
-    } else if (tx.type === "fine") {
-      totalFines += tx.amount;
-    } else if (tx.type === "repayment") {
-      if (tx.paymentTarget === "principal") {
-        totalPrincipalRepaid += tx.amount;
-      } else if (tx.paymentTarget === "interest") {
-        totalInterestRepaid += tx.amount;
-      } else {
-        // Legacy repayments without paymentTarget: apply to interest first, then principal
-        const remainingInterest =
-          totalInterestAccrued + totalFines - totalInterestRepaid;
-        if (remainingInterest > 0) {
-          const toInterest = Math.min(tx.amount, remainingInterest);
-          totalInterestRepaid += toInterest;
-          totalPrincipalRepaid += tx.amount - toInterest;
-        } else {
-          totalPrincipalRepaid += tx.amount;
-        }
-      }
-    }
-  }
-
-  const principalBalance = Math.max(0, totalDisbursed - totalPrincipalRepaid);
-  const interestBalance = Math.max(
-    0,
-    totalInterestAccrued + totalFines - totalInterestRepaid,
-  );
-
-  return {
-    totalDisbursed,
-    totalPrincipalRepaid,
-    totalInterestAccrued,
-    totalFines,
-    totalInterestRepaid,
-    principalBalance,
-    interestBalance,
-    totalOutstanding: principalBalance + interestBalance,
-  };
-};
-
-// ─── Helper: calculate interest periods from loan start to a given date ────────
-/**
- * Generates a breakdown of all 4-week interest periods from the first loan
- * disbursement date up to the target date.
- *
- * Interest is always 1% of the PRINCIPAL BALANCE at the time of each period.
- * Principal balance only changes when principal repayments are made.
- */
-const calculateInterestPeriods = (transactions, toDate = new Date()) => {
-  if (!transactions || transactions.length === 0) return [];
-
-  // Find the first loan disbursement
-  const firstLoan = transactions.find((tx) => tx.type === "loan");
-  if (!firstLoan) return [];
-
-  const startDate = new Date(firstLoan.date);
-  const endDate = new Date(toDate);
-
-  if (startDate >= endDate) return [];
-
-  // Build a timeline of principal changes
-  // Principal only changes on: loan disbursements and principal repayments
-  const principalEvents = transactions
-    .filter(
-      (tx) =>
-        tx.type === "loan" ||
-        (tx.type === "repayment" && tx.paymentTarget === "principal"),
-    )
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  // Get principal balance at a given date
-  const getPrincipalAtDate = (date) => {
-    let principal = 0;
-    for (const tx of principalEvents) {
-      if (new Date(tx.date) <= date) {
-        if (tx.type === "loan") principal += tx.amount;
-        else if (tx.type === "repayment") principal -= tx.amount;
-      }
-    }
-    return Math.max(0, principal);
-  };
-
-  // Get already-recorded interest transactions
-  const recordedInterest = transactions
-    .filter((tx) => tx.type === "interest")
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  const periods = [];
-  let periodStart = new Date(startDate);
-  const PERIOD_DAYS = 28;
-
-  while (periodStart < endDate) {
-    const periodEnd = new Date(periodStart);
-    periodEnd.setDate(periodEnd.getDate() + PERIOD_DAYS);
-
-    const isPartial = periodEnd > endDate;
-    const actualPeriodEnd = isPartial ? new Date(endDate) : new Date(periodEnd);
-
-    // Calculate days in this period
-    const daysInPeriod = Math.floor(
-      (actualPeriodEnd - periodStart) / (1000 * 60 * 60 * 24),
-    );
-
-    // Get principal balance at the start of this period
-    const principalAtPeriodStart = getPrincipalAtDate(periodStart);
-
-    if (principalAtPeriodStart <= 0) {
-      periodStart = new Date(periodEnd);
-      continue;
-    }
-
-    // For full periods: 1% flat. For partial: pro-rate by days
-    const interestRate = 0.01;
-    let interestAmount;
-    if (isPartial) {
-      interestAmount = parseFloat(
-        (
-          (principalAtPeriodStart * interestRate * daysInPeriod) /
-          PERIOD_DAYS
-        ).toFixed(2),
-      );
-    } else {
-      interestAmount = parseFloat(
-        (principalAtPeriodStart * interestRate).toFixed(2),
-      );
-    }
-
-    // Check if this period already has a recorded interest transaction
-    const alreadyRecorded = recordedInterest.find((tx) => {
-      if (tx.interestPeriod && tx.interestPeriod.periodStart) {
-        const txPeriodStart = new Date(tx.interestPeriod.periodStart);
-        return Math.abs(txPeriodStart - periodStart) < 1000 * 60 * 60 * 24; // within 1 day
-      }
-      return false;
-    });
-
-    periods.push({
-      periodStart: new Date(periodStart),
-      periodEnd: new Date(actualPeriodEnd),
-      daysInPeriod,
-      isPartial,
-      principalBalance: principalAtPeriodStart,
-      interestRate,
-      interestAmount,
-      alreadyRecorded: !!alreadyRecorded,
-      recordedTransactionId: alreadyRecorded?._id || null,
-    });
-
-    periodStart = new Date(periodEnd);
-  }
-
-  return periods;
-};
+import {
+  calculateInterestPeriods,
+  computeLoanSummary,
+} from "../services/loanLedgerService.js";
+import { applyDueInterestForUser } from "../services/interestAutomationService.js";
+import {
+  buildLoanClosureDocument,
+  buildLoanClosurePreview,
+} from "../services/loanClosureService.js";
 
 // ─── ADMIN: Add a loan transaction for a user ─────────────────────────────────
 // POST /api/admin/loans/:userId/transaction
@@ -355,6 +185,7 @@ const recordInterestEntry = async (req, res) => {
       note:
         note ||
         `Interest: 1% of ₹${calculatedPeriod.principalBalance.toFixed(2)} for period ${calculatedPeriod.periodStart.toLocaleDateString()} – ${calculatedPeriod.periodEnd.toLocaleDateString()}`,
+      entrySource: "manual",
       recordedBy: req.user._id,
       interestPeriod: {
         periodStart: calculatedPeriod.periodStart,
@@ -388,19 +219,8 @@ const recordInterestEntry = async (req, res) => {
 // POST /api/admin/loans/:userId/interest/apply-unrecorded
 // Body: { toDate?: string }  (ISO date; defaults to today)
 //
-// ROOT CAUSE of prior bug:
-//   The old version created a SINGLE transaction with periodStart=null.
-//   calculateInterestPeriods matches periods by periodStart (±1 day), so a
-//   null-period entry was NEVER matched, meaning totalUnrecorded never dropped
-//   to 0, and the button could be clicked repeatedly to add unlimited interest.
-//
-// Fix:
-//   Re-derive the full list of unrecorded periods server-side (same logic as
-//   calculateInterestToDate), then record each period individually using the
-//   same idempotent path as recordInterestEntry.  The unique index on
-//   (user, interestPeriod.periodStart) makes this inherently idempotent:
-//   a period that was already recorded will produce a duplicate-key error which
-//   we silently skip.
+// Manual and automatic application share the same atomic-upsert service. The
+// unique (user, periodStart) index remains the database-level duplicate guard.
 const applyUnrecordedInterest = async (req, res) => {
   const { userId } = req.params;
   const { toDate } = req.body;
@@ -410,80 +230,36 @@ const applyUnrecordedInterest = async (req, res) => {
     return res.status(404).json({ message: "User not found" });
   }
 
-  // Fetch the live ledger — never trust the amount sent from the browser
-  const transactions = await LoanTransaction.find({ user: userId }).sort({
-    date: 1,
+  const targetDate = toDate ? new Date(toDate) : new Date();
+  if (Number.isNaN(targetDate.getTime())) {
+    return res.status(400).json({ message: "toDate must be valid" });
+  }
+
+  const result = await applyDueInterestForUser({
+    userId,
+    toDate: targetDate,
+    source: "manual",
+    recordedBy: req.user._id,
   });
 
-  if (transactions.length === 0) {
+  if (result.transactionsFound === 0) {
     return res
       .status(400)
       .json({ message: "No transactions found for this user" });
   }
 
-  const targetDate = toDate ? new Date(toDate) : new Date();
-  const periods = calculateInterestPeriods(transactions, targetDate);
-  const unrecordedPeriods = periods.filter(
-    (p) => !p.alreadyRecorded && !p.isPartial,
-  );
-
-  if (unrecordedPeriods.length === 0) {
-    // Nothing to apply — fetch fresh summary and return it
-    const summary = computeLoanSummary(transactions);
-    return res.json({
-      message: "No unrecorded interest periods to apply",
-      periodsApplied: 0,
-      updatedInterestBalance: summary.interestBalance,
-      updatedInterestAccrued: summary.totalInterestAccrued,
-      updatedInterestRepaid: summary.totalInterestRepaid,
-      updatedTotalOutstanding: summary.totalOutstanding,
-    });
-  }
-
-  const now = new Date();
-  let periodsApplied = 0;
-  let totalApplied = 0;
-
-  for (const period of unrecordedPeriods) {
-    try {
-      await LoanTransaction.create({
-        user: userId,
-        type: "interest",
-        amount: period.interestAmount,
-        date: now,
-        note: `Interest: 1% of ₹${period.principalBalance.toFixed(2)} for ${period.periodStart.toLocaleDateString("en-IN")} – ${period.periodEnd.toLocaleDateString("en-IN")}`,
-        recordedBy: req.user._id,
-        interestPeriod: {
-          periodStart: period.periodStart,
-          periodEnd: period.periodEnd,
-          principalBalance: period.principalBalance,
-          interestRate: period.interestRate,
-        },
-      });
-      periodsApplied++;
-      totalApplied += period.interestAmount;
-    } catch (err) {
-      if (err.code === 11000) {
-        // Already recorded by a concurrent request — skip silently
-        continue;
-      }
-      throw err;
-    }
-  }
-
-  // Recompute summary from the now-updated ledger
-  const updatedTransactions = await LoanTransaction.find({ user: userId }).sort(
-    { date: 1 },
-  );
-  const summary = computeLoanSummary(updatedTransactions);
-
   return res.json({
-    periodsApplied,
-    totalApplied: parseFloat(totalApplied.toFixed(2)),
-    updatedInterestBalance: summary.interestBalance,
-    updatedInterestAccrued: summary.totalInterestAccrued,
-    updatedInterestRepaid: summary.totalInterestRepaid,
-    updatedTotalOutstanding: summary.totalOutstanding,
+    message:
+      result.periodsApplied > 0
+        ? "Unrecorded interest periods applied"
+        : "No unrecorded interest periods to apply",
+    periodsApplied: result.periodsApplied,
+    duePeriodsFound: result.duePeriodsFound,
+    totalApplied: result.totalApplied,
+    updatedInterestBalance: result.summary.interestBalance,
+    updatedInterestAccrued: result.summary.totalInterestAccrued,
+    updatedInterestRepaid: result.summary.totalInterestRepaid,
+    updatedTotalOutstanding: result.summary.totalOutstanding,
   });
 };
 
@@ -539,6 +315,114 @@ const calculateInterestToDate = async (req, res) => {
     totalUnrecorded: parseFloat(totalUnrecorded.toFixed(2)),
     projectedPartialInterest: parseFloat(projectedPartialInterest.toFixed(2)),
   });
+};
+
+// ─── ADMIN: Preview a full loan settlement (no writes) ───────────────────────
+// GET /api/admin/loans/:userId/close/preview?closeDate=YYYY-MM-DD
+const previewLoanClosure = async (req, res) => {
+  const { userId } = req.params;
+  const user = await User.findById(userId).select("name email role");
+  if (!user || user.role !== "user") {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  const transactions = await LoanTransaction.find({ user: userId }).sort({
+    date: 1,
+    createdAt: 1,
+  });
+  try {
+    const preview = buildLoanClosurePreview(
+      transactions,
+      req.query.closeDate,
+    );
+    return res.json({ user, ...preview });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+// ─── ADMIN: Apply due interest and atomically record a full settlement ───────
+// POST /api/admin/loans/:userId/close
+// Body: { closeDate, expectedTotal, note? }
+const closeLoan = async (req, res) => {
+  const { userId } = req.params;
+  const { closeDate, expectedTotal, note = "" } = req.body || {};
+  const user = await User.findById(userId).select("name email role");
+  if (!user || user.role !== "user") {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  const initialTransactions = await LoanTransaction.find({ user: userId }).sort({
+    date: 1,
+    createdAt: 1,
+  });
+  try {
+    // Validate before performing the completed-period catch-up.
+    buildLoanClosurePreview(initialTransactions, closeDate);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+
+  const parsedExpectedTotal = Number(expectedTotal);
+  if (!Number.isFinite(parsedExpectedTotal) || parsedExpectedTotal <= 0) {
+    return res.status(400).json({
+      message: "expectedTotal from a current closure preview is required",
+    });
+  }
+
+  // Uses the same idempotent upserts as manual/automatic interest. If the
+  // scheduler races this request, each completed period is still created once.
+  const appliedInterest = await applyDueInterestForUser({
+    userId,
+    toDate: new Date(`${closeDate}T00:00:00.000Z`),
+    source: "manual",
+    recordedBy: req.user._id,
+  });
+  const transactions = await LoanTransaction.find({ user: userId }).sort({
+    date: 1,
+    createdAt: 1,
+  });
+
+  let preview;
+  try {
+    preview = buildLoanClosurePreview(transactions, closeDate);
+  } catch (error) {
+    return res.status(409).json({ message: error.message });
+  }
+  if (Math.abs(parsedExpectedTotal - preview.totalSettlement) > 0.01) {
+    return res.status(409).json({
+      message:
+        "The loan balance changed after the preview. Review the updated settlement before closing.",
+      preview,
+    });
+  }
+
+  const closureDocument = buildLoanClosureDocument({
+    userId,
+    closeDate: preview.closeDate,
+    preview,
+    note,
+    recordedBy: req.user._id,
+  });
+
+  try {
+    const closure = await LoanTransaction.create(closureDocument);
+    const updatedSummary = computeLoanSummary([...transactions, closure]);
+    return res.status(201).json({
+      message: "Loan closed and full settlement recorded",
+      closure,
+      appliedCompletedPeriods: appliedInterest.periodsApplied,
+      appliedCompletedInterest: appliedInterest.totalApplied,
+      summary: updatedSummary,
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "This loan cycle has already been closed",
+      });
+    }
+    throw error;
+  }
 };
 
 // ─── ADMIN: Get full loan ledger for a user ───────────────────────────────────
@@ -628,6 +512,7 @@ const getMyLoanSummary = async (req, res) => {
     date: tx.date,
     note: tx.note,
     interestPeriod: tx.interestPeriod,
+    closureDetails: tx.closureDetails,
   }));
 
   res.json({
@@ -700,6 +585,8 @@ const deleteLoanTransaction = async (req, res) => {
         note: tx.note,
         paymentTarget: tx.paymentTarget,
         interestPeriod: tx.interestPeriod,
+        closureDetails: tx.closureDetails,
+        closureKey: tx.closureKey,
       },
       summaryBefore,
       summaryAfter,
@@ -723,6 +610,8 @@ export {
   applyUnrecordedInterest,
   recordInterestEntry,
   calculateInterestToDate,
+  previewLoanClosure,
+  closeLoan,
   getUserLoanDetail,
   getAllUsersLoanOverview,
   getMyLoanSummary,

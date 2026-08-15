@@ -48,6 +48,8 @@ services:
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: Admin@1234
       INTEREST_CRON_ENABLED: "true"
+      INTEREST_CRON_RUN_ON_STARTUP: "true"
+      INTEREST_CRON_SCHEDULE: "10 0 * * *"
       INTEREST_CRON_TIMEZONE: Asia/Kolkata
     ports:
       - "${BACKEND_PORT:-4001}:4000"

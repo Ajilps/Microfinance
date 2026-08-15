@@ -5,10 +5,11 @@ import FinePayment from "../models/finePaymentModel.js";
 import LoanTransaction from "../models/loanModel.js";
 import ProfitDistribution from "../models/profitDistributionModel.js";
 import SavingsPayment from "../models/savingsModel.js";
+import SavingsWithdrawal from "../models/savingsWithdrawalModel.js";
 import User from "../models/userModel.js";
 import { buildBankLedger } from "./bankTransactionController.js";
-import { computeLoanSummary } from "./loanController.js";
 import { buildProfitSummary } from "./profitController.js";
+import { computeLoanSummary } from "../services/loanLedgerService.js";
 
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
 
@@ -51,6 +52,7 @@ const buildDashboardSnapshot = ({
   users,
   loans,
   savings,
+  savingsWithdrawals = [],
   attendance,
   bankTransactions,
   extras,
@@ -71,10 +73,12 @@ const buildDashboardSnapshot = ({
       new Date(left.createdAt || 0) - new Date(right.createdAt || 0),
   );
   const bankLedger = buildBankLedger(sortedBankTransactions);
-  const totalSavings = savings.reduce(
-    (sum, payment) => sum + Number(payment.amount || 0),
-    0,
-  );
+  const totalSavings =
+    savings.reduce((sum, payment) => sum + Number(payment.amount || 0), 0) -
+    savingsWithdrawals.reduce(
+      (sum, withdrawal) => sum + Number(withdrawal.amount || 0),
+      0,
+    );
   const principalCollectionRate = loanSummary.totalDisbursed
     ? (loanSummary.totalPrincipalRepaid / loanSummary.totalDisbursed) * 100
     : 0;
@@ -90,7 +94,40 @@ const buildDashboardSnapshot = ({
         .filter((payment) =>
           isInRange(payment.paidOn, bucket.start, bucket.endExclusive),
         )
+        .reduce((sum, payment) => sum + Number(payment.amount || 0), 0) -
+        savingsWithdrawals
+          .filter((withdrawal) =>
+            isInRange(
+              withdrawal.withdrawalDate,
+              bucket.start,
+              bucket.endExclusive,
+            ),
+          )
+          .reduce(
+            (sum, withdrawal) => sum + Number(withdrawal.amount || 0),
+            0,
+          ),
+    ),
+    savingsDeposits: roundMoney(
+      savings
+        .filter((payment) =>
+          isInRange(payment.paidOn, bucket.start, bucket.endExclusive),
+        )
         .reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
+    ),
+    savingsWithdrawals: roundMoney(
+      savingsWithdrawals
+        .filter((withdrawal) =>
+          isInRange(
+            withdrawal.withdrawalDate,
+            bucket.start,
+            bucket.endExclusive,
+          ),
+        )
+        .reduce(
+          (sum, withdrawal) => sum + Number(withdrawal.amount || 0),
+          0,
+        ),
     ),
     loansDisbursed: roundMoney(
       loans
@@ -105,7 +142,7 @@ const buildDashboardSnapshot = ({
       loans
         .filter(
           (transaction) =>
-            transaction.type === "repayment" &&
+            ["repayment", "closure"].includes(transaction.type) &&
             isInRange(transaction.date, bucket.start, bucket.endExclusive),
         )
         .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0),
@@ -160,11 +197,19 @@ const buildDashboardSnapshot = ({
       (savingsByUser.get(userId) || 0) + Number(payment.amount || 0),
     );
   }
+  for (const withdrawal of savingsWithdrawals) {
+    const userId = String(withdrawal.user?._id || withdrawal.user);
+    savingsByUser.set(
+      userId,
+      (savingsByUser.get(userId) || 0) - Number(withdrawal.amount || 0),
+    );
+  }
   const topSavers = [...savingsByUser.entries()]
     .map(([userId, amount]) => ({
       name: userNames.get(userId) || "Unknown member",
       amount: roundMoney(amount),
     }))
+    .filter((member) => member.amount > 0)
     .sort((left, right) => right.amount - left.amount)
     .slice(0, 6);
 
@@ -255,6 +300,7 @@ const getDashboardOverview = async (req, res) => {
     users,
     loans,
     savings,
+    savingsWithdrawals,
     attendance,
     bankTransactions,
     extras,
@@ -264,6 +310,7 @@ const getDashboardOverview = async (req, res) => {
     User.find({ role: "user" }).select("name email createdAt"),
     LoanTransaction.find().sort({ date: 1, createdAt: 1 }),
     SavingsPayment.find().sort({ paidOn: 1, createdAt: 1 }),
+    SavingsWithdrawal.find().sort({ withdrawalDate: 1, createdAt: 1 }),
     Attendance.find().sort({ weekStartDate: 1 }),
     BankTransaction.find().sort({ transactionDate: 1, createdAt: 1 }),
     ExtraTransaction.find(),
@@ -276,6 +323,7 @@ const getDashboardOverview = async (req, res) => {
       users,
       loans,
       savings,
+      savingsWithdrawals,
       attendance,
       bankTransactions,
       extras,

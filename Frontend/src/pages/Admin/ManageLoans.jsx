@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import moment from 'moment';
 import { useForm } from 'react-hook-form';
 import Pagination from '../../components/Pagination';
+import LoanClosurePanel from '../../components/LoanClosurePanel';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -22,6 +23,7 @@ const ManageLoans = () => {
   const [calcToDate, setCalcToDate] = useState(moment().format('YYYY-MM-DD'));
   const [showCalcPanel, setShowCalcPanel] = useState(false);
   const [recordingPeriod, setRecordingPeriod] = useState(null);
+  const [automationStatus, setAutomationStatus] = useState(null);
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
   const [txSubmitting, setTxSubmitting] = useState(false);
@@ -53,10 +55,20 @@ const ManageLoans = () => {
     }
   }, []);
 
+  const fetchAutomationStatus = useCallback(async () => {
+    try {
+      const response = await api.get('/admin/interest-automation/status');
+      setAutomationStatus(response.data);
+    } catch {
+      setAutomationStatus(null);
+    }
+  }, []);
+
   useEffect(() => {
     fetchLoansOverview();
     fetchUsers();
-  }, [fetchLoansOverview, fetchUsers]);
+    fetchAutomationStatus();
+  }, [fetchAutomationStatus, fetchLoansOverview, fetchUsers]);
 
   const fetchUserLedger = async (userId) => {
     setLedgerLoading(true);
@@ -301,6 +313,7 @@ const ManageLoans = () => {
       },
       interest: { bg: '#fef3c7', color: '#92400e', label: 'Interest' },
       fine: { bg: '#e0e7ff', color: '#3730a3', label: 'Fine' },
+      closure: { bg: '#ffe4e6', color: '#9f1239', label: 'Loan Closed' },
     };
     const s = styles[tx.type] || { bg: '#f1f5f9', color: '#475569', label: tx.type };
     return (
@@ -457,9 +470,28 @@ const ManageLoans = () => {
                     >
                       {calcLoading ? 'Calculating...' : '🔢 Calculate Interest to Date'}
                     </button>
-                  </div>
+	                  </div>
 
-                  {showCalcPanel && interestCalc && (
+                  {automationStatus && (
+                    <div className={`member-automation-status${automationStatus.enabled ? ' enabled' : ' disabled'}`} style={{ marginTop: '1rem', marginBottom: 0 }}>
+                      <span className="member-automation-dot" aria-hidden="true" />
+                      <div>
+                        <strong>Automatic interest {automationStatus.enabled ? 'enabled' : 'disabled'}</strong>
+                        <p>
+                          {automationStatus.enabled
+                            ? `Startup catch-up ${automationStatus.runOnStartup ? 'on' : 'off'} · ${automationStatus.schedule} · ${automationStatus.timezone}`
+                            : 'Manual calculation and application remain available.'}
+                        </p>
+                        {automationStatus.lastResult && (
+                          <small>
+                            Last run applied {automationStatus.lastResult.periodsApplied} period(s), ₹{Number(automationStatus.lastResult.totalApplied || 0).toFixed(2)}.
+                          </small>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+	                  {showCalcPanel && interestCalc && (
                     <div style={{ marginTop: '1.25rem' }}>
                       {/* Summary row */}
                       <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -558,6 +590,19 @@ const ManageLoans = () => {
                   )}
                 </div>
 
+                <LoanClosurePanel
+                  userId={selectedUserId}
+                  outstandingBalance={summary.totalOutstanding}
+                  onClosed={async () => {
+                    setInterestCalc(null);
+                    setShowCalcPanel(false);
+                    await Promise.all([
+                      fetchUserLedger(selectedUserId),
+                      fetchLoansOverview(),
+                    ]);
+                  }}
+                />
+
                 {/* ── Transaction Ledger ── */}
                 <div className="table-container">
                   <h3 style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', margin: 0 }}>
@@ -585,12 +630,16 @@ const ManageLoans = () => {
                               <tr key={tx._id}>
                                 <td>{moment(tx.date).format('MMM Do YYYY')}</td>
                                 <td>{txTypeBadge(tx)}</td>
-                                <td style={{ fontWeight: 600, color: tx.type === 'repayment' ? '#10b981' : tx.type === 'interest' ? '#d97706' : 'inherit' }}>
-                                  {tx.type === 'repayment' ? '-' : '+'}₹{tx.amount.toFixed(2)}
+                                <td style={{ fontWeight: 600, color: tx.type === 'repayment' || tx.type === 'closure' ? '#10b981' : tx.type === 'interest' ? '#d97706' : 'inherit' }}>
+                                  {tx.type === 'repayment' || tx.type === 'closure' ? '-' : '+'}₹{tx.amount.toFixed(2)}
                                 </td>
-                                <td style={{ fontSize: '0.85rem', color: '#64748b' }}>{tx.recordedBy?.name || 'Auto'}</td>
+                                <td style={{ fontSize: '0.85rem', color: '#64748b' }}>{tx.entrySource === 'automatic' ? 'Automatic scheduler' : tx.recordedBy?.name || 'Legacy / unknown'}</td>
                                 <td style={{ fontSize: '0.82rem', color: '#64748b' }}>
-                                  {tx.type === 'interest' && tx.interestPeriod?.periodStart ? (
+                                  {tx.type === 'closure' && tx.closureDetails ? (
+                                    <span>
+                                      Principal {`₹${Number(tx.closureDetails.principalPaid || 0).toFixed(2)}`} · Interest {`₹${Number(tx.closureDetails.interestPaid || 0).toFixed(2)}`}
+                                    </span>
+                                  ) : tx.type === 'interest' && tx.interestPeriod?.periodStart ? (
                                     <span>
                                       {moment(tx.interestPeriod.periodStart).format('MMM D')} – {moment(tx.interestPeriod.periodEnd).format('MMM D, YYYY')}
                                       {' '}@ {((tx.interestPeriod.interestRate || 0.01) * 100).toFixed(1)}% on ₹{(tx.interestPeriod.principalBalance || 0).toFixed(2)}

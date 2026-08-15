@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
+import { isTokenVersionCurrent } from "../utils/authToken.js";
 
 const protect = async (req, res, next) => {
   let token;
@@ -20,6 +21,12 @@ const protect = async (req, res, next) => {
       return res
         .status(401)
         .json({ message: "Not authorized, user not found" });
+    }
+
+    if (!isTokenVersionCurrent(decoded, req.user)) {
+      return res.status(401).json({
+        message: "Your session has expired. Please log in again.",
+      });
     }
 
     next();

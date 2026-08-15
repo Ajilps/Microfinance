@@ -213,7 +213,7 @@ const AdminDashboard = () => {
       <div className="dashboard-chart-grid">
         <ChartCard
           title="Six-month fund activity"
-          subtitle="Savings received, loans issued, and repayments collected by month."
+          subtitle="Savings deposited and withdrawn, loans issued, and repayments collected by month."
           className="dashboard-chart-card--wide"
         >
           <div className="dashboard-chart" role="img" aria-label="Grouped bar chart of monthly savings, loan disbursements, and repayments">
@@ -224,7 +224,8 @@ const AdminDashboard = () => {
                 <YAxis tickFormatter={compactMoney} tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} width={62} />
                 <Tooltip content={<DashboardTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-                <Bar dataKey="savings" name="Savings" fill={COLORS.emerald} radius={[5, 5, 0, 0]} />
+                <Bar dataKey="savingsDeposits" name="Savings deposits" fill={COLORS.emerald} radius={[5, 5, 0, 0]} />
+                <Bar dataKey="savingsWithdrawals" name="Savings withdrawals" fill={COLORS.rose} radius={[5, 5, 0, 0]} />
                 <Bar dataKey="loansDisbursed" name="Loans issued" fill={COLORS.rose} radius={[5, 5, 0, 0]} />
                 <Bar dataKey="repayments" name="Repayments" fill={COLORS.sky} radius={[5, 5, 0, 0]} />
               </BarChart>
@@ -234,7 +235,8 @@ const AdminDashboard = () => {
             caption="Six-month fund activity data"
             columns={[
               { key: 'month', label: 'Month' },
-              { key: 'savings', label: 'Savings' },
+              { key: 'savingsDeposits', label: 'Savings deposits' },
+              { key: 'savingsWithdrawals', label: 'Savings withdrawals' },
               { key: 'loansDisbursed', label: 'Loans issued' },
               { key: 'repayments', label: 'Repayments' },
             ]}
@@ -386,6 +388,7 @@ const AdminDashboard = () => {
           <p>Jump directly to the most common weekly administration tasks.</p>
         </div>
         <div className="dashboard-action-grid">
+          <Link to="/admin/find-user" className="btn btn-primary">⌕ Find by User</Link>
           <Link to="/admin/loans" className="btn btn-primary">💳 Manage Loans</Link>
           <Link to="/admin/savings" className="btn btn-secondary">🏦 Record Savings</Link>
           <Link to="/admin/attendance" className="btn btn-primary">📋 Mark Attendance</Link>

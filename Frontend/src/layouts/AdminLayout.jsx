@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 
 const NAV_ITEMS = [
   { to: '/admin/dashboard', icon: '⬡', label: 'Dashboard' },
+  { to: '/admin/find-user', icon: '⌕', label: 'Find by User' },
   { to: '/admin/users', icon: '👥', label: 'Manage Users' },
   { to: '/admin/loans', icon: '💳', label: 'Manage Loans' },
   { to: '/admin/savings', icon: '🏦', label: 'Manage Savings' },
@@ -101,22 +102,31 @@ const AdminLayout = () => {
         </nav>
 
         <div className="sidebar-footer">
-          <button
-            className="sidebar-logout-btn"
-            onClick={handleLogout}
-            title="Click to logout"
+          <NavLink
+            to="/admin/profile"
+            className={({ isActive }) => `sidebar-profile-link${isActive ? ' active' : ''}`}
+            onClick={handleNavClick}
+            title="Manage admin profile"
           >
             <div className="sidebar-avatar" aria-hidden="true">{initials}</div>
             <div className="logout-text-wrapper">
-              <span className="logout-label">Logout</span>
+              <span className="logout-label">Admin Profile</span>
               <span className="logout-user-name">{user?.name || 'Admin'}</span>
             </div>
+            <span className="sidebar-profile-link__icon" aria-hidden="true">⚙</span>
+          </NavLink>
+          <button
+            className="sidebar-logout-btn sidebar-logout-btn--compact"
+            onClick={handleLogout}
+            title="Click to logout"
+          >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
+            <span>Logout</span>
           </button>
         </div>
       </aside>
@@ -149,10 +159,10 @@ const AdminLayout = () => {
           </div>
 
           <div className="topbar__right">
-            <div className="topbar__user">
+            <NavLink className="topbar__user" to="/admin/profile" title="Manage admin profile">
               <div className="topbar-avatar" aria-hidden="true">{initials}</div>
               <span className="topbar__user-name">{user?.name || 'Admin'}</span>
-            </div>
+            </NavLink>
           </div>
         </header>
 

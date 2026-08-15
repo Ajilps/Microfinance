@@ -29,10 +29,9 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear token and handle unauthorized error
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      // Potential redirect to login if required: window.location.href = '/login';
+      window.dispatchEvent(new Event("auth:unauthorized"));
     }
     return Promise.reject(error);
   },
