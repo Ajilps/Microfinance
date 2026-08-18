@@ -21,11 +21,11 @@ const UserLayout = () => {
       text: "You will be logged out of your session.",
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
+      confirmButtonColor: '#cda557',
+      cancelButtonColor: '#153451',
       confirmButtonText: 'Yes, logout!',
-      background: '#1a1a1a',
-      color: '#ffffff'
+      background: '#06111f',
+      color: '#edf3fa'
     }).then((result) => {
       if (result.isConfirmed) {
         logout();
@@ -132,6 +132,10 @@ const UserLayout = () => {
                 </svg>
               )}
             </button>
+            <div className="topbar-context">
+              <span>Member portal</span>
+              <strong>Your financial overview</strong>
+            </div>
           </div>
 
           <div className="topbar__right">

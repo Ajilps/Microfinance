@@ -88,6 +88,15 @@ const attendanceSummaryToCsvRows = (summary) =>
     "Balance (INR)": row.balance,
   }));
 
+const calculateFineTotals = (absentCount, payments) => {
+  const fineOwed = Number(absentCount || 0) * 20;
+  const totalPaid = payments.reduce(
+    (sum, payment) => sum + Number(payment.amount || 0),
+    0,
+  );
+  return { fineOwed, totalPaid, fineBalance: fineOwed - totalPaid };
+};
+
 // ─── Mark Bulk Attendance ─────────────────────────────────────────────────────
 
 // @desc    Admin marks attendance for all users for a given week
@@ -539,11 +548,27 @@ const getMyAttendanceSummary = async (req, res) => {
   const startOfMonth = new Date(y, m - 1, 1);
   const endOfMonth = new Date(y, m, 0, 23, 59, 59, 999);
 
-  // Fetch this user's attendance records for the month
-  const records = await Attendance.find({
-    user: userId,
-    attendanceDate: { $gte: startOfMonth, $lte: endOfMonth },
-  }).sort({ attendanceDate: 1 });
+  const now = new Date();
+  const [records, payments, allTimeAbsentCount, allTimePayments] = await Promise.all([
+    Attendance.find({
+      user: userId,
+      attendanceDate: { $gte: startOfMonth, $lte: endOfMonth },
+    }).sort({ attendanceDate: 1 }),
+    FinePayment.find({
+      user: userId,
+      month: m,
+      year: y,
+    }).select("amount paidOn note"),
+    Attendance.countDocuments({
+      user: userId,
+      status: "absent",
+      attendanceDate: { $lte: now },
+    }),
+    FinePayment.find({
+      user: userId,
+      paidOn: { $lte: now },
+    }).select("amount"),
+  ]);
 
   const present = records.filter((r) => r.status === "present").length;
   const absent = records.filter((r) => r.status === "absent").length;
@@ -551,13 +576,8 @@ const getMyAttendanceSummary = async (req, res) => {
   const leave = records.filter((r) => r.status === "leave").length;
   const fineOwed = absent * 20;
 
-  // Fetch fine payments made by this user for the month
-  const payments = await FinePayment.find({
-    user: userId,
-    month: m,
-    year: y,
-  }).select("amount paidOn note");
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  const allTimeFine = calculateFineTotals(allTimeAbsentCount, allTimePayments);
 
   res.json({
     month: m,
@@ -569,7 +589,11 @@ const getMyAttendanceSummary = async (req, res) => {
     leave,
     fineOwed,
     totalPaid,
-    fineBalance: fineOwed - totalPaid,
+    // Fine balance is intentionally all-time even though attendance counts and
+    // payment history above remain scoped to the selected month.
+    fineBalance: allTimeFine.fineBalance,
+    allTimeFineOwed: allTimeFine.fineOwed,
+    allTimeFinePaid: allTimeFine.totalPaid,
     finePayments: payments.map((p) => ({
       amount: p.amount,
       paidOn: p.paidOn,
@@ -596,4 +620,5 @@ export {
   getMyAttendanceSummary,
   buildAttendanceSummary,
   getWeekRange,
+  calculateFineTotals,
 };

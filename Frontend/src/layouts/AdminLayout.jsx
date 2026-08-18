@@ -28,11 +28,11 @@ const AdminLayout = () => {
       text: "You will be logged out of your session.",
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
+      confirmButtonColor: '#cda557',
+      cancelButtonColor: '#153451',
       confirmButtonText: 'Yes, logout!',
-      background: '#1a1a1a',
-      color: '#ffffff'
+      background: '#06111f',
+      color: '#edf3fa'
     }).then((result) => {
       if (result.isConfirmed) {
         logout();
@@ -156,6 +156,10 @@ const AdminLayout = () => {
                 </svg>
               )}
             </button>
+            <div className="topbar-context">
+              <span>Admin console</span>
+              <strong>Financial command center</strong>
+            </div>
           </div>
 
           <div className="topbar__right">

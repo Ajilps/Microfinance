@@ -99,10 +99,13 @@ const MyAttendance = () => {
                 {attendanceData.late} / {attendanceData.leave}
               </div>
             </div>
-            <div className="stat-card" style={{ background: attendanceData.fineBalance > 0 ? '#fef2f2' : 'white' }}>
-              <div className="stat-title" style={{ color: attendanceData.fineBalance > 0 ? '#991b1b' : '#64748b' }}>Fine Balance</div>
+            <div className="stat-card" style={attendanceData.fineBalance > 0 ? { borderColor: 'rgba(251, 113, 133, 0.42)' } : undefined}>
+              <div className="stat-title" style={{ color: attendanceData.fineBalance > 0 ? '#991b1b' : '#64748b' }}>All-Time Fine Balance</div>
               <div className="stat-value" style={{ color: attendanceData.fineBalance > 0 ? 'var(--danger)' : '#0f172a' }}>
                 ₹{attendanceData.fineBalance?.toFixed(2) || '0.00'}
+              </div>
+              <div className="stat-sub">
+                ₹{attendanceData.allTimeFineOwed?.toFixed(2) || '0.00'} generated · ₹{attendanceData.allTimeFinePaid?.toFixed(2) || '0.00'} paid
               </div>
             </div>
           </div>

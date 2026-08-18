@@ -41,7 +41,10 @@ const Dashboard = () => {
 
   return (
     <div>
-      <h2 style={{ marginBottom: '1.5rem', color: '#0f172a' }}>Overview</h2>
+      <div className="page-header">
+        <h2>Welcome back</h2>
+        <p>Your loans, savings, and attendance in one clear view.</p>
+      </div>
 
       <div className="stat-grid">
         <div className="stat-card">
@@ -66,7 +69,7 @@ const Dashboard = () => {
 
         <div className="stat-card">
           <div className="stat-title">Attendance (This Month)</div>
-          <div className="stat-value" style={{ color: '#0f172a' }}>
+          <div className="stat-value" style={{ color: 'var(--gold-300)' }}>
             {attendanceSummary?.present || 0} <span style={{ fontSize: '1rem', color: '#64748b', fontWeight: 'normal' }}>present</span>
           </div>
           <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.5rem' }}>
@@ -74,13 +77,13 @@ const Dashboard = () => {
           </p>
         </div>
 
-        <div className="stat-card" style={{ background: attendanceSummary?.fineBalance > 0 ? '#fef2f2' : 'white' }}>
-          <div className="stat-title" style={{ color: attendanceSummary?.fineBalance > 0 ? '#991b1b' : '#64748b' }}>Fine Balance</div>
-          <div className="stat-value" style={{ color: attendanceSummary?.fineBalance > 0 ? 'var(--danger)' : '#0f172a' }}>
+        <div className="stat-card" style={attendanceSummary?.fineBalance > 0 ? { borderColor: 'rgba(251, 113, 133, 0.42)' } : undefined}>
+          <div className="stat-title" style={{ color: attendanceSummary?.fineBalance > 0 ? '#991b1b' : '#64748b' }}>All-Time Fine Balance</div>
+          <div className="stat-value" style={{ color: attendanceSummary?.fineBalance > 0 ? 'var(--danger)' : 'var(--gold-300)' }}>
             ₹{attendanceSummary?.fineBalance?.toFixed(2) || '0.00'}
           </div>
           <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.5rem' }}>
-            Total fines this month: ₹{attendanceSummary?.fineOwed || 0}
+            ₹{attendanceSummary?.allTimeFineOwed?.toFixed(2) || '0.00'} generated · ₹{attendanceSummary?.allTimeFinePaid?.toFixed(2) || '0.00'} paid
           </p>
         </div>
       </div>

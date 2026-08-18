@@ -438,6 +438,8 @@ Tokens are returned upon successful login or registration.
   "fineOwed": 20,
   "totalPaid": 20,
   "fineBalance": 0,
+  "allTimeFineOwed": 40,
+  "allTimeFinePaid": 40,
   "finePayments": [
     { "amount": 20, "paidOn": "2026-03-20T00:00:00.000Z", "note": "Paid in cash" }
   ],
@@ -451,6 +453,10 @@ Tokens are returned upon successful login or registration.
   ]
 }
 ```
+
+`fineOwed`, `totalPaid`, `finePayments`, and attendance counts are scoped to
+the requested month. `fineBalance`, `allTimeFineOwed`, and `allTimeFinePaid`
+cover the member's full attendance history through the current date.
 
 **Error Responses:**
 | Status | Message |

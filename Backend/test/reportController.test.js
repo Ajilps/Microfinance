@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildAttendanceSummary } from "../src/controllers/attendanceController.js";
+import {
+  buildAttendanceSummary,
+  calculateFineTotals,
+} from "../src/controllers/attendanceController.js";
 import {
   buildLoanReport,
   buildSavingsReport,
@@ -149,6 +152,13 @@ test("all-time attendance report includes fine payments and balances", () => {
     },
   );
   assert.equal(emptyMember.totalWeeks, 0);
+});
+
+test("member fine balance uses all absences and payments across months", () => {
+  assert.deepEqual(
+    calculateFineTotals(3, [{ amount: 20 }, { amount: 10 }]),
+    { fineOwed: 60, totalPaid: 30, fineBalance: 30 },
+  );
 });
 
 test("monthly report requires a valid month and year", () => {

@@ -19,14 +19,14 @@ import {
 import api from '../../services/api';
 
 const COLORS = {
-  indigo: '#818cf8',
-  emerald: '#34d399',
-  sky: '#38bdf8',
-  rose: '#fb7185',
-  amber: '#fbbf24',
-  violet: '#a78bfa',
-  muted: '#64748b',
-  grid: 'rgba(148, 163, 184, 0.13)',
+  indigo: '#e7c87a',
+  emerald: '#5e9bbd',
+  sky: '#8ab8d2',
+  rose: '#d88472',
+  amber: '#f5dc9a',
+  violet: '#9a88bd',
+  muted: '#74889f',
+  grid: 'rgba(231, 200, 122, 0.12)',
 };
 
 const money = (value) =>
@@ -142,13 +142,13 @@ const AdminDashboard = () => {
       label: 'Members',
       value: summary.memberCount,
       detail: `${summary.latestAttendanceRate.toFixed(1)}% present in latest session`,
-      color: 'var(--indigo-400)',
+      color: 'var(--gold-400)',
     },
     {
       label: 'Savings Pool',
       value: money(summary.totalSavings),
       detail: `${summary.savingsCoverage.toFixed(1)}% of outstanding principal`,
-      color: 'var(--emerald-400)',
+      color: 'var(--gold-300)',
     },
     {
       label: 'Principal Outstanding',
