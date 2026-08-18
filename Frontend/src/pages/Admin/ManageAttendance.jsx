@@ -265,7 +265,7 @@ const ManageAttendance = () => {
     borderRadius: '6px',
     fontWeight: 600,
     cursor: 'pointer',
-    background: activeTab === tab ? 'var(--primary-color)' : '#e2e8f0',
+    background: activeTab === tab ? 'var(--primary-color)' : '#2f343b',
     color: activeTab === tab ? 'white' : '#475569',
     transition: 'all 0.2s',
   });
@@ -286,7 +286,7 @@ const ManageAttendance = () => {
           <button style={tabStyle('mark')} onClick={() => setActiveTab('mark')}>📋 Mark Weekly</button>
           <button style={tabStyle('monthly')} onClick={() => setActiveTab('monthly')}>📅 Monthly Report</button>
           <button style={tabStyle('all')} onClick={() => setActiveTab('all')}>📈 All Time Report</button>
-          <button style={{ ...tabStyle('fines'), background: activeTab === 'fines' ? '#ef4444' : '#e2e8f0', color: activeTab === 'fines' ? 'white' : '#475569' }}
+          <button style={{ ...tabStyle('fines'), background: activeTab === 'fines' ? '#ef4444' : '#547241', color: activeTab === 'fines' ? 'white' : '#475569' }}
             onClick={() => setActiveTab('fines')}>💸 Manage Fines</button>
         </div>
       </div>

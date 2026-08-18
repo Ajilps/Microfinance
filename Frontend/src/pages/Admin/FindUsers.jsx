@@ -139,9 +139,13 @@ const FindUsers = () => {
                 {filteredMembers.map((member) => (
                   <tr key={member.userId}>
                     <td>
-                      <div className="member-identity-cell">
-                        <span className="member-list-avatar" aria-hidden="true">
+                      <div className="member-identity-cell ">
+                        <span className="member-list-avatar " aria-hidden="true">
+                         <div className= "text-align-center" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', color: '#fff', backgroundColor: '#d9d14228', borderRadius: '50%' }}>
+                          
                           {member.name?.[0]?.toUpperCase() || 'M'}
+                          </div> 
+                          
                         </span>
                         <div>
                           <strong>{member.name}</strong>
