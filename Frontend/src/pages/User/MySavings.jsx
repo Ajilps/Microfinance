@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
 import moment from 'moment';
 import Pagination from '../../components/Pagination';
+import sortNewestFirst from '../../utils/sortNewestFirst';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -30,7 +31,7 @@ const MySavings = () => {
   if (error) return <div className="card" style={{ color: 'var(--danger)' }}>{error}</div>;
   if (!savingsData) return <div className="card">No savings data available.</div>;
 
-  const payments = savingsData.transactions || [];
+  const payments = sortNewestFirst(savingsData.transactions || [], 'transactionDate');
   const paginatedPayments = payments.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE

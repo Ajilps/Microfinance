@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
 import moment from 'moment';
 import Pagination from '../../components/Pagination';
+import sortNewestFirst from '../../utils/sortNewestFirst';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -39,8 +40,8 @@ const MyAttendance = () => {
   const handleMonthChange = (e) => setMonth(e.target.value);
   const handleYearChange = (e) => setYear(e.target.value);
 
-  const weeklyRecords = attendanceData?.weeklyRecords || [];
-  const finePayments = attendanceData?.finePayments || [];
+  const weeklyRecords = sortNewestFirst(attendanceData?.weeklyRecords || [], 'attendanceDate');
+  const finePayments = sortNewestFirst(attendanceData?.finePayments || [], 'paidOn');
 
   const paginatedWeekly = weeklyRecords.slice(
     (weeklyPage - 1) * ITEMS_PER_PAGE,

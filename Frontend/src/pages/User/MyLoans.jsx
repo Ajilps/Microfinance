@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
 import moment from 'moment';
 import Pagination from '../../components/Pagination';
+import sortNewestFirst from '../../utils/sortNewestFirst';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -31,7 +32,7 @@ const MyLoans = () => {
   if (error) return <div className="card" style={{ color: 'var(--danger)' }}>{error}</div>;
   if (!loanData) return <div className="card">No loan data available.</div>;
 
-  const history = loanData.history || [];
+  const history = sortNewestFirst(loanData.history || [], 'date');
 
   // Filter transactions by tab
   const filteredHistory = history.filter(tx => {
