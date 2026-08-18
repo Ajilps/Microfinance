@@ -42,6 +42,13 @@ const TABS = [
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+const dateInputValue = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
+  return localDate.toISOString().slice(0, 10);
+};
+
 const mondayFor = (value) => {
   const date = new Date(`${value}T12:00:00`);
   if (Number.isNaN(date.getTime())) return '';
@@ -138,6 +145,7 @@ const UserWorkspace = () => {
     weekStartDate: mondayFor(today()),
     note: '',
   });
+  const [editingSavingsPaymentId, setEditingSavingsPaymentId] = useState(null);
   const [loanForm, setLoanForm] = useState({
     action: 'loan',
     amount: '',
@@ -191,6 +199,26 @@ const UserWorkspace = () => {
     fetchWorkspace();
   }, [fetchWorkspace]);
 
+  useEffect(() => {
+    if (activeTab !== 'savings' || !workspace || !savingsForm.paidOn) return;
+
+    const weekStartDate = mondayFor(savingsForm.paidOn);
+    const payments = workspace.savingsPayments || [];
+    const existingPayment = payments.find((payment) => (
+      dateInputValue(payment.weekStartDate) === weekStartDate
+    )) || payments.find((payment) => (
+      mondayFor(dateInputValue(payment.paidOn)) === weekStartDate
+    ));
+
+    setEditingSavingsPaymentId(existingPayment?._id || null);
+    setSavingsForm((current) => ({
+      ...current,
+      weekStartDate,
+      amount: existingPayment ? String(existingPayment.amount) : '',
+      note: existingPayment?.note || '',
+    }));
+  }, [activeTab, savingsForm.paidOn, workspace]);
+
   const runMutation = async (key, operation, successMessage) => {
     setBusy(key);
     try {
@@ -208,17 +236,22 @@ const UserWorkspace = () => {
 
   const submitSavings = async (event) => {
     event.preventDefault();
-    const saved = await runMutation(
+    const endpoint = editingSavingsPaymentId
+      ? `/admin/savings/${userId}/payment/${editingSavingsPaymentId}`
+      : `/admin/savings/${userId}/payment`;
+    await runMutation(
       'savings',
-      () => api.post(`/admin/savings/${userId}/payment`, {
-        ...savingsForm,
-        amount: Number(savingsForm.amount),
-      }),
-      'Savings payment recorded',
+      () => {
+        const payload = {
+          ...savingsForm,
+          amount: Number(savingsForm.amount),
+        };
+        return editingSavingsPaymentId
+          ? api.put(endpoint, payload)
+          : api.post(endpoint, payload);
+      },
+      editingSavingsPaymentId ? 'Savings payment updated' : 'Savings payment recorded',
     );
-    if (saved) {
-      setSavingsForm((current) => ({ ...current, amount: '', note: '' }));
-    }
   };
 
   const submitLoanTransaction = async (event) => {
@@ -272,7 +305,6 @@ const UserWorkspace = () => {
       'attendance',
       () => api.post('/admin/attendance', {
         attendanceDate: attendanceForm.attendanceDate,
-        weekStartDay: 0,
         records: [{
           userId,
           status: attendanceForm.status,
@@ -330,17 +362,31 @@ const UserWorkspace = () => {
   };
 
   const recordInterestPeriod = async (period) => {
-    const saved = await runMutation(
-      `interest-${period.periodStart}`,
-      () => api.post(`/admin/loans/${userId}/interest`, {
+    const busyKey = `interest-${period.periodStart}`;
+    setBusy(busyKey);
+    let shouldRefresh = false;
+    try {
+      await api.post(`/admin/loans/${userId}/interest`, {
         periodStart: period.periodStart,
         periodEnd: period.periodEnd,
         date: new Date(period.periodEnd).toISOString().slice(0, 10),
         note: `Interest for ${formatDate(period.periodStart)} to ${formatDate(period.periodEnd)}`,
-      }),
-      'Interest period recorded',
-    );
-    if (saved) {
+      });
+      toast.success('Interest period recorded');
+      shouldRefresh = true;
+    } catch (requestError) {
+      if (requestError.response?.status === 409) {
+        toast.info('This interest period was already recorded. Refreshing the ledger.');
+        shouldRefresh = true;
+      } else {
+        toast.error(requestError.response?.data?.message || 'The interest period could not be saved');
+      }
+    } finally {
+      setBusy('');
+    }
+
+    if (shouldRefresh) {
+      await fetchWorkspace();
       setInterestCalc(null);
       await calculateInterest();
     }
@@ -607,8 +653,8 @@ const UserWorkspace = () => {
           <div className="member-tab-stack">
             <section className="card member-action-card">
             <div className="member-section-heading">
-              <h3>Record savings</h3>
-              <p>Add this member&apos;s weekly savings payment.</p>
+              <h3>{editingSavingsPaymentId ? 'Update savings' : 'Record savings'}</h3>
+              <p>{editingSavingsPaymentId ? 'Update the saved payment for this week.' : 'Add this member\'s weekly savings payment.'}</p>
             </div>
             <form onSubmit={submitSavings}>
               <div className="input-group">
@@ -621,15 +667,15 @@ const UserWorkspace = () => {
               </div>
               <div className="input-group">
                 <label className="input-label" htmlFor="member-saving-week">Week start date *</label>
-                <input id="member-saving-week" className="input-field" type="date" required value={savingsForm.weekStartDate} onChange={(event) => setSavingsForm({ ...savingsForm, weekStartDate: event.target.value })} />
-                <p className="input-help">Automatically follows Paid on, but remains editable.</p>
+                <input id="member-saving-week" className="input-field" type="date" required readOnly value={savingsForm.weekStartDate} />
+                <p className="input-help">Automatically derived from Paid on to prevent duplicate weekly payments.</p>
               </div>
               <div className="input-group">
                 <label className="input-label" htmlFor="member-saving-note">Note</label>
                 <input id="member-saving-note" className="input-field" value={savingsForm.note} onChange={(event) => setSavingsForm({ ...savingsForm, note: event.target.value })} placeholder="Optional payment details" />
               </div>
               <button className="btn btn-secondary member-form-submit" type="submit" disabled={busy === 'savings'}>
-                {busy === 'savings' ? 'Recording…' : 'Record savings payment'}
+                {busy === 'savings' ? 'Saving…' : editingSavingsPaymentId ? 'Update savings payment' : 'Record savings payment'}
               </button>
             </form>
             </section>

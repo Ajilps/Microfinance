@@ -53,7 +53,7 @@ const validatePaymentValues = ({ amount, paidOn }) => {
 // ─── ADMIN: Record a weekly savings deposit ──────────────────────────────────
 const recordSavingsPayment = async (req, res) => {
   const { userId } = req.params;
-  const { amount, paidOn, weekStartDate, note } = req.body;
+  const { amount, paidOn, note } = req.body;
   let values;
   try {
     values = validatePaymentValues({ amount, paidOn });
@@ -65,16 +65,19 @@ const recordSavingsPayment = async (req, res) => {
   if (!user || user.role !== "user") {
     return res.status(404).json({ message: "User not found" });
   }
-  const resolvedWeekStart = weekStartDate
-    ? getWeekStart(weekStartDate)
-    : getWeekStart(values.paidOn);
-  if (Number.isNaN(resolvedWeekStart.getTime())) {
-    return res.status(400).json({ message: "weekStartDate must be valid" });
-  }
+  // Always derive the uniqueness key from the payment date. Accepting a
+  // client-supplied week start allowed different admin forms to create
+  // different keys for the same weekly payment.
+  const resolvedWeekStart = getWeekStart(values.paidOn);
+  const weekEnd = new Date(resolvedWeekStart);
+  weekEnd.setDate(weekEnd.getDate() + 7);
 
   const existing = await SavingsPayment.findOne({
     user: userId,
-    weekStartDate: resolvedWeekStart,
+    $or: [
+      { weekStartDate: resolvedWeekStart },
+      { paidOn: { $gte: resolvedWeekStart, $lt: weekEnd } },
+    ],
   });
   if (existing) {
     return res.status(409).json({
@@ -83,15 +86,27 @@ const recordSavingsPayment = async (req, res) => {
     });
   }
 
-  const payment = await SavingsPayment.create({
-    user: userId,
-    weekStartDate: resolvedWeekStart,
-    paidOn: values.paidOn,
-    amount: values.amount,
-    note,
-    recordedBy: req.user._id,
-  });
-  return res.status(201).json(payment);
+  try {
+    const payment = await SavingsPayment.create({
+      user: userId,
+      weekStartDate: resolvedWeekStart,
+      paidOn: values.paidOn,
+      amount: values.amount,
+      note,
+      recordedBy: req.user._id,
+    });
+    return res.status(201).json(payment);
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+    const concurrentPayment = await SavingsPayment.findOne({
+      user: userId,
+      weekStartDate: resolvedWeekStart,
+    });
+    return res.status(409).json({
+      message: "Savings for this week already recorded. Use update if needed.",
+      existing: concurrentPayment,
+    });
+  }
 };
 
 // ─── ADMIN: Update an existing savings deposit ───────────────────────────────
@@ -113,6 +128,24 @@ const updateSavingsPayment = async (req, res) => {
     return res.status(400).json({ message: error.message });
   }
 
+  const resolvedWeekStart = getWeekStart(values.paidOn);
+  const weekEnd = new Date(resolvedWeekStart);
+  weekEnd.setDate(weekEnd.getDate() + 7);
+  const conflictingPayment = await SavingsPayment.findOne({
+    _id: { $ne: payment._id },
+    user: userId,
+    $or: [
+      { weekStartDate: resolvedWeekStart },
+      { paidOn: { $gte: resolvedWeekStart, $lt: weekEnd } },
+    ],
+  });
+  if (conflictingPayment) {
+    return res.status(409).json({
+      message: "Savings for this week already recorded. Update that payment instead.",
+      existing: conflictingPayment,
+    });
+  }
+
   const [payments, withdrawals] = await Promise.all([
     SavingsPayment.find({ user: userId }).lean(),
     SavingsWithdrawal.find({ user: userId }).lean(),
@@ -132,9 +165,23 @@ const updateSavingsPayment = async (req, res) => {
 
   payment.amount = values.amount;
   payment.paidOn = values.paidOn;
+  payment.weekStartDate = resolvedWeekStart;
   if (req.body.note !== undefined) payment.note = req.body.note;
   payment.recordedBy = req.user._id;
-  await payment.save();
+  try {
+    await payment.save();
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+    const concurrentPayment = await SavingsPayment.findOne({
+      _id: { $ne: payment._id },
+      user: userId,
+      weekStartDate: resolvedWeekStart,
+    });
+    return res.status(409).json({
+      message: "Savings for this week already recorded. Update that payment instead.",
+      existing: concurrentPayment,
+    });
+  }
   return res.json(payment);
 };
 

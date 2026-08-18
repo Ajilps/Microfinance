@@ -6,6 +6,16 @@ import {
   validateSavingsTimeline,
 } from "../src/services/savingsLedgerService.js";
 import { validateWithdrawalInput } from "../src/controllers/savingsWithdrawalController.js";
+import { getWeekStart } from "../src/controllers/savingsController.js";
+
+test("savings derives the same Monday key from every payment date in a week", () => {
+  const tuesday = getWeekStart(new Date(2026, 7, 18, 12));
+  const sunday = getWeekStart(new Date(2026, 7, 23, 12));
+
+  assert.equal(tuesday.getDay(), 1);
+  assert.equal(tuesday.getDate(), 17);
+  assert.equal(sunday.getTime(), tuesday.getTime());
+});
 
 test("savings summary subtracts withdrawals from deposits", () => {
   const summary = computeSavingsSummary(

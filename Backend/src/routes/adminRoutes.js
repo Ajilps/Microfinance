@@ -120,7 +120,7 @@ router.get("/all", adminProtect, getAllAdmins);
 // ─── Attendance ───────────────────────────────────────────────────────────────
 // Mark weekly attendance for all users (bulk upsert)
 router.post("/attendance", adminProtect, markBulkAttendance);
-// GET /api/admin/attendance?date=2026-03-16&weekStartDay=0
+// GET /api/admin/attendance?date=2026-03-16
 router.get("/attendance", adminProtect, getAttendanceByDate);
 // GET /api/admin/attendance/monthly?month=3&year=2026
 router.get("/attendance/monthly", adminProtect, getMonthlyAttendanceSummary);

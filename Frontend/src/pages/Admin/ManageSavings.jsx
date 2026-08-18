@@ -16,20 +16,32 @@ const ManageSavings = () => {
   const [selectedUserName, setSelectedUserName] = useState('');
   const [userSavingsDetail, setUserSavingsDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
 
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, setValue, getValues, formState: { errors } } = useForm({
     defaultValues: {
       paidOn: moment().format('YYYY-MM-DD'),
       weekStartDate: moment().startOf('isoWeek').format('YYYY-MM-DD'),
     }
   });
-  const updateWeekStartDate = (paidOn) => {
+  const loadPaymentForDate = (paidOn, detail = userSavingsDetail) => {
     const paymentDate = moment(paidOn, 'YYYY-MM-DD', true);
     if (!paymentDate.isValid()) return;
 
-    setValue('weekStartDate', paymentDate.startOf('isoWeek').format('YYYY-MM-DD'), {
+    const weekStartDate = paymentDate.startOf('isoWeek').format('YYYY-MM-DD');
+    const payments = detail?.payments || [];
+    const existingPayment = payments.find(payment => (
+      moment(payment.weekStartDate).format('YYYY-MM-DD') === weekStartDate
+    )) || payments.find(payment => (
+      moment(payment.paidOn).startOf('isoWeek').format('YYYY-MM-DD') === weekStartDate
+    ));
+
+    setValue('weekStartDate', weekStartDate, {
       shouldValidate: true,
     });
+    setValue('amount', existingPayment ? String(existingPayment.amount) : '');
+    setValue('note', existingPayment?.note || '');
+    setEditingPaymentId(existingPayment?._id || null);
   };
 
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -84,10 +96,12 @@ const ManageSavings = () => {
     setSelectedUserName(name);
     setDetailLoading(true);
     setUserSavingsDetail(null);
+    setEditingPaymentId(null);
     setHistoryPage(1);
     try {
       const response = await api.get(`/admin/savings/${userId}`);
       setUserSavingsDetail(response.data);
+      loadPaymentForDate(getValues('paidOn'), response.data);
     } catch (error) {
       toast.error('Failed to load savings details: ' + (error.response?.data?.message || error.message));
       setSelectedUserId(null);
@@ -99,13 +113,20 @@ const ManageSavings = () => {
   const onSubmitPayment = async (data) => {
     setSubmitLoading(true);
     try {
-      await api.post(`/admin/savings/${selectedUserId}/payment`, {
+      const endpoint = editingPaymentId
+        ? `/admin/savings/${selectedUserId}/payment/${editingPaymentId}`
+        : `/admin/savings/${selectedUserId}/payment`;
+      const payload = {
         amount: parseFloat(data.amount),
         paidOn: data.paidOn,
-        weekStartDate: data.weekStartDate,
         note: data.note || '',
-      });
-      toast.success('Savings payment recorded successfully');
+      };
+      await (editingPaymentId
+        ? api.put(endpoint, payload)
+        : api.post(endpoint, payload));
+      toast.success(editingPaymentId
+        ? 'Savings payment updated successfully'
+        : 'Savings payment recorded successfully');
       reset({
         amount: '',
         note: '',
@@ -436,7 +457,7 @@ const ManageSavings = () => {
 
           {/* New Payment Form */}
           <div className="card" style={{ flex: 1, minWidth: '280px', alignSelf: 'flex-start' }}>
-            <h3 className="mb-4">Record Savings — {selectedUserName}</h3>
+            <h3 className="mb-4">{editingPaymentId ? 'Update' : 'Record'} Savings — {selectedUserName}</h3>
             <form onSubmit={handleSubmit(onSubmitPayment)}>
               <div className="input-group">
                 <label className="input-label">Amount (₹) *</label>
@@ -457,7 +478,7 @@ const ManageSavings = () => {
                   type="date"
                   className="input-field"
                   {...register('paidOn', { required: 'Date is required' })}
-                  onInput={(event) => updateWeekStartDate(event.currentTarget.value)}
+                  onInput={(event) => loadPaymentForDate(event.currentTarget.value)}
                 />
                 {errors.paidOn && <p className="error-text">{errors.paidOn.message}</p>}
               </div>
@@ -467,10 +488,11 @@ const ManageSavings = () => {
                 <input
                   type="date"
                   className="input-field"
+                  readOnly
                   {...register('weekStartDate', { required: 'Week start date is required' })}
                 />
                 <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-                  Automatically set from Paid On; you can change it manually.
+                  Automatically derived from Paid On to prevent duplicate weekly payments.
                 </p>
                 {errors.weekStartDate && <p className="error-text">{errors.weekStartDate.message}</p>}
               </div>
@@ -486,7 +508,7 @@ const ManageSavings = () => {
               </div>
 
               <button type="submit" className="btn btn-secondary" style={{ width: '100%' }} disabled={submitLoading}>
-                {submitLoading ? 'Recording...' : 'Record Payment'}
+                {submitLoading ? 'Saving...' : editingPaymentId ? 'Update Payment' : 'Record Payment'}
               </button>
             </form>
           </div>

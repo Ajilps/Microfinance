@@ -19,6 +19,18 @@ const getWeekStart = (date, startDay = 0) => {
   return d;
 };
 
+// Attendance is weekly throughout the application. Keeping the boundary on the
+// server prevents different admin screens from producing different uniqueness
+// keys for the same meeting date.
+const ATTENDANCE_WEEK_START_DAY = 1;
+
+const getWeekRange = (date) => {
+  const start = getWeekStart(date, ATTENDANCE_WEEK_START_DAY);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 7);
+  return { start, end };
+};
+
 const ATTENDANCE_CSV_FIELDS = [
   "Name",
   "Email",
@@ -81,9 +93,9 @@ const attendanceSummaryToCsvRows = (summary) =>
 // @desc    Admin marks attendance for all users for a given week
 // @route   POST /api/admin/attendance
 // @access  Private/Admin
-// Body: { attendanceDate: "2026-03-16", weekStartDay: 0, records: [{ userId, status, note }] }
+// Body: { attendanceDate: "2026-03-16", records: [{ userId, status, note }] }
 const markBulkAttendance = async (req, res) => {
-  const { attendanceDate, weekStartDay = 0, records } = req.body;
+  const { attendanceDate, records } = req.body;
 
   if (
     !attendanceDate ||
@@ -96,47 +108,152 @@ const markBulkAttendance = async (req, res) => {
       .json({ message: "attendanceDate and records are required" });
   }
 
+  const parsedAttendanceDate = new Date(attendanceDate);
+  if (Number.isNaN(parsedAttendanceDate.getTime())) {
+    return res.status(400).json({ message: "attendanceDate must be a valid date" });
+  }
+
+  const validStatuses = new Set(["present", "absent", "late", "leave"]);
+  const userIds = records.map((record) => String(record.userId || ""));
+  if (
+    userIds.some((userId) => !userId) ||
+    new Set(userIds).size !== userIds.length ||
+    records.some((record) => !validStatuses.has(record.status))
+  ) {
+    return res.status(400).json({
+      message: "Each record needs a unique userId and a valid attendance status",
+    });
+  }
+
   const adminId = req.user._id;
-  const weekStart = getWeekStart(new Date(attendanceDate), weekStartDay);
+  const { start: weekStart, end: weekEnd } = getWeekRange(parsedAttendanceDate);
 
-  const ops = records.map(({ userId, status, note }) => ({
-    updateOne: {
-      filter: { user: userId, weekStartDate: weekStart },
-      update: {
-        $set: {
-          status,
-          note: note || "",
-          markedBy: adminId,
-          attendanceDate: new Date(attendanceDate),
-          weekStartDate: weekStart,
-          user: userId,
+  // Include records written by older clients that used a Sunday week boundary.
+  // Updating one of those records migrates it to the canonical Monday boundary
+  // instead of inserting a second record for the same member and meeting week.
+  const existingRecords = await Attendance.find({
+    user: { $in: userIds },
+    $or: [
+      { weekStartDate: weekStart },
+      { attendanceDate: { $gte: weekStart, $lt: weekEnd } },
+    ],
+  }).select("_id user weekStartDate updatedAt");
+
+  const existingByUser = new Map();
+  for (const existingRecord of existingRecords) {
+    const userId = String(existingRecord.user);
+    const candidates = existingByUser.get(userId) || [];
+    candidates.push(existingRecord);
+    existingByUser.set(userId, candidates);
+  }
+
+  const duplicateIds = [];
+  const ops = records.map(({ userId, status, note }) => {
+    const candidates = existingByUser.get(String(userId)) || [];
+    const canonicalRecord = candidates.find(
+      (record) => record.weekStartDate?.getTime() === weekStart.getTime(),
+    );
+    const recordToUpdate = canonicalRecord || candidates[0];
+
+    duplicateIds.push(
+      ...candidates
+        .filter((record) => !recordToUpdate || String(record._id) !== String(recordToUpdate._id))
+        .map((record) => record._id),
+    );
+
+    return {
+      updateOne: {
+        filter: recordToUpdate
+          ? { _id: recordToUpdate._id }
+          : { user: userId, weekStartDate: weekStart },
+        update: {
+          $set: {
+            status,
+            note: note || "",
+            markedBy: adminId,
+            attendanceDate: parsedAttendanceDate,
+            weekStartDate: weekStart,
+            user: userId,
+          },
         },
+        upsert: !recordToUpdate,
       },
-      upsert: true,
-    },
-  }));
+    };
+  });
 
-  await Attendance.bulkWrite(ops);
+  try {
+    await Attendance.bulkWrite(ops, { ordered: false });
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+
+    // A second admin may save the same week between the lookup and the upsert.
+    // The unique index prevents the duplicate; this retry applies this request
+    // to the record that won that race.
+    await Attendance.bulkWrite(
+      records.map(({ userId, status, note }) => ({
+        updateOne: {
+          filter: { user: userId, weekStartDate: weekStart },
+          update: {
+            $set: {
+              status,
+              note: note || "",
+              markedBy: adminId,
+              attendanceDate: parsedAttendanceDate,
+            },
+          },
+        },
+      })),
+      { ordered: false },
+    );
+  }
+  if (duplicateIds.length > 0) {
+    await Attendance.deleteMany({ _id: { $in: duplicateIds } });
+  }
   res.json({ message: "Attendance marked successfully", weekStart });
 };
 
 // ─── Get Attendance by Date ───────────────────────────────────────────────────
 
 // @desc    Get all attendance records for a specific week (by any date within it)
-// @route   GET /api/admin/attendance?date=2026-03-16&weekStartDay=0
+// @route   GET /api/admin/attendance?date=2026-03-16
 // @access  Private/Admin
 const getAttendanceByDate = async (req, res) => {
-  const { date, weekStartDay = 0 } = req.query;
+  const { date } = req.query;
 
   if (!date) {
     return res.status(400).json({ message: "date query param is required" });
   }
 
-  const weekStart = getWeekStart(new Date(date), parseInt(weekStartDay));
+  const parsedDate = new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return res.status(400).json({ message: "date must be a valid date" });
+  }
 
-  const records = await Attendance.find({ weekStartDate: weekStart })
+  const { start: weekStart, end: weekEnd } = getWeekRange(parsedDate);
+
+  const foundRecords = await Attendance.find({
+    $or: [
+      { weekStartDate: weekStart },
+      { attendanceDate: { $gte: weekStart, $lt: weekEnd } },
+    ],
+  })
     .populate("user", "name email")
     .populate("markedBy", "name");
+
+  // Do not show a member twice if historical data contains both Sunday- and
+  // Monday-based records. Saving this week will also remove the stale copy.
+  const recordsByUser = new Map();
+  for (const record of foundRecords) {
+    const userId = String(record.user?._id || record.user);
+    const current = recordsByUser.get(userId);
+    const isCanonical = record.weekStartDate?.getTime() === weekStart.getTime();
+    const currentIsCanonical = current?.weekStartDate?.getTime() === weekStart.getTime();
+    if (!current || (isCanonical && !currentIsCanonical)) {
+      recordsByUser.set(userId, record);
+    }
+  }
+
+  const records = [...recordsByUser.values()];
 
   res.json({ weekStart, records });
 };
@@ -478,4 +595,5 @@ export {
   getUserFineReport,
   getMyAttendanceSummary,
   buildAttendanceSummary,
+  getWeekRange,
 };

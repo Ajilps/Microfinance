@@ -23,6 +23,8 @@ const ManageAttendance = () => {
   const [attendanceDate, setAttendanceDate] = useState(moment().format('YYYY-MM-DD'));
   const [records, setRecords] = useState({});
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingAttendance, setLoadingAttendance] = useState(false);
+  const [existingRecordCount, setExistingRecordCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   // ─── Monthly + Fines tab state ────────────────────────────────────────────────
@@ -116,6 +118,55 @@ const ManageAttendance = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, year]);
 
+  // Load the selected week's saved values after the member list is available.
+  // This also resets the form to its defaults when the selected week is empty.
+  useEffect(() => {
+    if (activeTab !== 'mark' || users.length === 0 || !attendanceDate) return undefined;
+
+    let cancelled = false;
+    const fetchAttendanceForDate = async () => {
+      setLoadingAttendance(true);
+      setMarkPage(1);
+      try {
+        const response = await api.get('/admin/attendance', {
+          params: { date: attendanceDate },
+        });
+        if (cancelled) return;
+
+        const savedByUser = new Map(
+          (response.data.records || [])
+            .filter(record => record.user)
+            .map(record => [String(record.user._id || record.user), record]),
+        );
+        const nextRecords = {};
+        users.forEach(user => {
+          const saved = savedByUser.get(String(user._id));
+          nextRecords[user._id] = {
+            status: saved?.status || 'present',
+            note: saved?.note || '',
+          };
+        });
+        setRecords(nextRecords);
+        setExistingRecordCount(savedByUser.size);
+      } catch (err) {
+        if (!cancelled) {
+          const defaultRecords = {};
+          users.forEach(user => {
+            defaultRecords[user._id] = { status: 'present', note: '' };
+          });
+          setRecords(defaultRecords);
+          setExistingRecordCount(0);
+          toast.error('Failed to load attendance: ' + (err.response?.data?.message || err.message));
+        }
+      } finally {
+        if (!cancelled) setLoadingAttendance(false);
+      }
+    };
+
+    fetchAttendanceForDate();
+    return () => { cancelled = true; };
+  }, [activeTab, attendanceDate, users]);
+
   // ─── Attendance handlers ──────────────────────────────────────────────────────
   const handleStatusChange = (userId, status) => {
     setRecords(prev => ({ ...prev, [userId]: { ...prev[userId], status } }));
@@ -138,11 +189,11 @@ const ManageAttendance = () => {
       }));
 
       await api.post('/admin/attendance', {
-        attendanceDate: moment(attendanceDate).toISOString(),
-        weekStartDay: 1,  // 1 = Monday
+        attendanceDate,
         records: formattedRecords,
       });
-      toast.success('Attendance marked successfully!');
+      setExistingRecordCount(formattedRecords.length);
+      toast.success(existingRecordCount > 0 ? 'Attendance updated successfully!' : 'Attendance marked successfully!');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to mark attendance');
     } finally {
@@ -247,7 +298,11 @@ const ManageAttendance = () => {
             <div>
               <h3 style={{ margin: 0 }}>Mark Weekly Attendance</h3>
               <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-                System uses the selected date to determine the week
+                {loadingAttendance
+                  ? 'Loading saved attendance for the selected week…'
+                  : existingRecordCount > 0
+                    ? `Loaded ${existingRecordCount} saved record${existingRecordCount === 1 ? '' : 's'} for this week`
+                    : 'No saved attendance for this week'}
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -287,6 +342,7 @@ const ManageAttendance = () => {
                               <button
                                 key={s}
                                 type="button"
+                                disabled={loadingAttendance || submitting}
                                 onClick={() => handleStatusChange(user._id, s)}
                                 style={{
                                   padding: '0.3rem 0.7rem',
@@ -312,6 +368,7 @@ const ManageAttendance = () => {
                             placeholder="Optional note"
                             style={{ padding: '0.4rem 0.75rem', fontSize: '0.875rem' }}
                             value={records[user._id]?.note || ''}
+                            disabled={loadingAttendance || submitting}
                             onChange={e => handleNoteChange(user._id, e.target.value)}
                           />
                         </td>
@@ -327,8 +384,12 @@ const ManageAttendance = () => {
                 onPageChange={setMarkPage}
               />
               <div style={{ textAlign: 'right', marginTop: '1rem' }}>
-                <button className="btn btn-primary" onClick={submitAttendance} disabled={submitting}>
-                  {submitting ? 'Saving...' : `✓ Save Attendance for ${moment(attendanceDate).format('MMM Do YYYY')}`}
+                <button className="btn btn-primary" onClick={submitAttendance} disabled={submitting || loadingAttendance}>
+                  {submitting
+                    ? 'Saving...'
+                    : existingRecordCount > 0
+                      ? `✓ Update Attendance for ${moment(attendanceDate).format('MMM Do YYYY')}`
+                      : `✓ Save Attendance for ${moment(attendanceDate).format('MMM Do YYYY')}`}
                 </button>
               </div>
             </>

@@ -686,8 +686,7 @@ Authorization: Bearer <admin_jwt_token>
 
 ```json
 {
-  "attendanceDate": "2026-03-16T10:00:00.000Z",
-  "weekStartDay": 0,
+  "attendanceDate": "2026-03-16",
   "records": [
     {
       "userId": "64abc123...",
@@ -708,7 +707,7 @@ Authorization: Bearer <admin_jwt_token>
 ```json
 {
   "message": "Attendance marked successfully",
-  "weekStart": "2026-03-15T00:00:00.000Z"
+  "weekStart": "2026-03-16T00:00:00.000Z"
 }
 ```
 
@@ -716,7 +715,7 @@ Authorization: Bearer <admin_jwt_token>
 
 ### Get Attendance by Date (Weekly)
 
-**GET** `/api/admin/attendance?date=2026-03-16&weekStartDay=0`
+**GET** `/api/admin/attendance?date=2026-03-16`
 
 **Access:** Private/Admin
 
@@ -724,13 +723,15 @@ Authorization: Bearer <admin_jwt_token>
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `date` | Date string | Yes | Any date within the week you want to fetch |
-| `weekStartDay` | Integer | No | `0` = Sunday, `1` = Monday. Default `0` |
+
+Weeks always start on Monday so every admin attendance flow uses the same
+database uniqueness key.
 
 **Success Response — `200 OK`:**
 
 ```json
 {
-  "weekStart": "2026-03-15T00:00:00.000Z",
+  "weekStart": "2026-03-16T00:00:00.000Z",
   "records": [
     {
       "_id": "64xyz...",
@@ -739,7 +740,7 @@ Authorization: Bearer <admin_jwt_token>
         "name": "John Doe",
         "email": "john@example.com"
       },
-      "weekStartDate": "2026-03-15T00:00:00.000Z",
+      "weekStartDate": "2026-03-16T00:00:00.000Z",
       "attendanceDate": "2026-03-16T10:00:00.000Z",
       "status": "present",
       "note": ""
@@ -1072,12 +1073,13 @@ rejected when a later withdrawal depends on that deposit.
 {
   "amount": 200,
   "paidOn": "2026-03-10",
-  "weekStartDate": "2026-03-09",
   "note": "Week 10 savings"
 }
 ```
 
-> `weekStartDate` is optional — if omitted, it is derived from `paidOn` (normalized to Monday).
+> The server derives `weekStartDate` from `paidOn` and normalizes it to Monday.
+> Client-supplied week boundaries are ignored so every admin entry point uses
+> the same duplicate-protection key.
 
 **Success Response — `201 Created`:**
 
@@ -1132,6 +1134,7 @@ rejected when a later withdrawal depends on that deposit.
 |--------|---------|
 | `403` | Forbidden: Admin access required |
 | `404` | Savings payment not found |
+| `409` | Another savings payment already exists for the selected week |
 
 ---
 
@@ -1910,8 +1913,7 @@ Authorization: Bearer <admin_jwt_token>
 
 ```json
 {
-  "attendanceDate": "2026-03-16T10:00:00.000Z",
-  "weekStartDay": 0,
+  "attendanceDate": "2026-03-16",
   "records": [
     {
       "userId": "64abc123...",
@@ -1932,7 +1934,7 @@ Authorization: Bearer <admin_jwt_token>
 ```json
 {
   "message": "Attendance marked successfully",
-  "weekStart": "2026-03-15T00:00:00.000Z"
+  "weekStart": "2026-03-16T00:00:00.000Z"
 }
 ```
 
@@ -1940,7 +1942,7 @@ Authorization: Bearer <admin_jwt_token>
 
 ### Get Attendance by Date (Weekly)
 
-**GET** `/api/admin/attendance?date=2026-03-16&weekStartDay=0`
+**GET** `/api/admin/attendance?date=2026-03-16`
 
 **Access:** Private/Admin
 
@@ -1948,13 +1950,15 @@ Authorization: Bearer <admin_jwt_token>
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `date` | Date string | Yes | Any date within the week you want to fetch |
-| `weekStartDay` | Integer | No | `0` = Sunday, `1` = Monday. Default `0` |
+
+Weeks always start on Monday so every admin attendance flow uses the same
+database uniqueness key.
 
 **Success Response — `200 OK`:**
 
 ```json
 {
-  "weekStart": "2026-03-15T00:00:00.000Z",
+  "weekStart": "2026-03-16T00:00:00.000Z",
   "records": [
     {
       "_id": "64xyz...",
@@ -1963,7 +1967,7 @@ Authorization: Bearer <admin_jwt_token>
         "name": "John Doe",
         "email": "john@example.com"
       },
-      "weekStartDate": "2026-03-15T00:00:00.000Z",
+      "weekStartDate": "2026-03-16T00:00:00.000Z",
       "attendanceDate": "2026-03-16T10:00:00.000Z",
       "status": "present",
       "note": ""

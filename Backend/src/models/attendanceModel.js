@@ -10,7 +10,7 @@ const attendanceSchema = new mongoose.Schema(
     weekStartDate: {
       type: Date,
       required: [true, "Week start date is required"],
-      // Normalized to midnight of the first day of the week (Sunday by default)
+      // Normalized to midnight on Monday by the attendance controller
     },
     attendanceDate: {
       type: Date,
