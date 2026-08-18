@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { DATE_ONLY_PATTERN } from "../config/constants.js";
 import ExtraTransaction from "../models/extraTransactionModel.js";
 import FinePayment from "../models/finePaymentModel.js";
 import LoanTransaction from "../models/loanModel.js";
@@ -9,7 +10,6 @@ import SavingsWithdrawal from "../models/savingsWithdrawalModel.js";
 import User from "../models/userModel.js";
 import { computeLoanSummary } from "../services/loanLedgerService.js";
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
 
 const createDistributionCalculationKey = ({
@@ -36,7 +36,7 @@ const createDistributionCalculationKey = ({
     .digest("hex");
 
 const getAsOfRange = (value) => {
-  if (!value || typeof value !== "string" || !DATE_PATTERN.test(value)) {
+  if (!value || typeof value !== "string" || !DATE_ONLY_PATTERN.test(value)) {
     throw new Error("asOfDate must use YYYY-MM-DD format");
   }
   const start = new Date(`${value}T00:00:00.000Z`);

@@ -1,17 +1,19 @@
 import { createHash } from "node:crypto";
 
 import {
+  DATE_ONLY_PATTERN,
+  DEFAULT_TIME_ZONE,
+} from "../config/constants.js";
+import {
   buildLoanCycles,
   calculateInterestPeriods,
   computeLoanSummary,
 } from "./loanLedgerService.js";
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
 
 const parseDateOnly = (value, fieldName = "closeDate") => {
-  if (typeof value !== "string" || !DATE_PATTERN.test(value)) {
+  if (typeof value !== "string" || !DATE_ONLY_PATTERN.test(value)) {
     throw new Error(`${fieldName} must use YYYY-MM-DD format`);
   }
   const parsed = new Date(`${value}T00:00:00.000Z`);
@@ -24,7 +26,7 @@ const parseDateOnly = (value, fieldName = "closeDate") => {
   return parsed;
 };
 
-const dateKeyInTimeZone = (date, timeZone = "Asia/Kolkata") => {
+const dateKeyInTimeZone = (date, timeZone = DEFAULT_TIME_ZONE) => {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
@@ -38,7 +40,7 @@ const dateKeyInTimeZone = (date, timeZone = "Asia/Kolkata") => {
 const validateCloseDate = (
   transactions,
   closeDateValue,
-  { now = new Date(), timeZone = "Asia/Kolkata" } = {},
+  { now = new Date(), timeZone = DEFAULT_TIME_ZONE } = {},
 ) => {
   const closeDate = parseDateOnly(closeDateValue);
   if (closeDateValue > dateKeyInTimeZone(now, timeZone)) {

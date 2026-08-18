@@ -1,4 +1,9 @@
 import AuditLog from "../models/auditLogModel.js";
+import {
+  DATE_ONLY_PATTERN,
+  DEFAULT_TIME_ZONE,
+  SAVINGS_INTEREST_RATE,
+} from "../config/constants.js";
 import SavingsPayment from "../models/savingsModel.js";
 import SavingsWithdrawal from "../models/savingsWithdrawalModel.js";
 import User from "../models/userModel.js";
@@ -7,11 +12,9 @@ import {
   validateSavingsTimeline,
 } from "../services/savingsLedgerService.js";
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
 const todayInIndia = () => {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
+    timeZone: DEFAULT_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -21,7 +24,7 @@ const todayInIndia = () => {
 };
 
 const parseDateOnly = (value, fieldName = "withdrawalDate") => {
-  if (typeof value !== "string" || !DATE_PATTERN.test(value)) {
+  if (typeof value !== "string" || !DATE_ONLY_PATTERN.test(value)) {
     throw new Error(`${fieldName} must use YYYY-MM-DD format`);
   }
   const date = new Date(`${value}T00:00:00.000Z`);
@@ -107,7 +110,9 @@ const recordSavingsWithdrawal = async (req, res) => {
     withdrawal,
     summary: {
       ...summary,
-      savingsInterest: Number((summary.totalSavings * 0.01).toFixed(2)),
+      savingsInterest: Number(
+        (summary.totalSavings * SAVINGS_INTEREST_RATE).toFixed(2),
+      ),
     },
   });
 };
@@ -151,7 +156,9 @@ const updateSavingsWithdrawal = async (req, res) => {
     withdrawal,
     summary: {
       ...summary,
-      savingsInterest: Number((summary.totalSavings * 0.01).toFixed(2)),
+      savingsInterest: Number(
+        (summary.totalSavings * SAVINGS_INTEREST_RATE).toFixed(2),
+      ),
     },
   });
 };
@@ -171,10 +178,10 @@ const deleteSavingsWithdrawal = async (req, res) => {
   const summaryBefore = computeSavingsSummary(payments, withdrawals);
   const summaryAfter = computeSavingsSummary(payments, remaining);
   summaryBefore.savingsInterest = Number(
-    (summaryBefore.totalSavings * 0.01).toFixed(2),
+    (summaryBefore.totalSavings * SAVINGS_INTEREST_RATE).toFixed(2),
   );
   summaryAfter.savingsInterest = Number(
-    (summaryAfter.totalSavings * 0.01).toFixed(2),
+    (summaryAfter.totalSavings * SAVINGS_INTEREST_RATE).toFixed(2),
   );
   await withdrawal.deleteOne();
 

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MINIMUM_FINE_PAYMENT_AMOUNT } from "../config/constants.js";
 
 const finePaymentSchema = new mongoose.Schema(
     {
@@ -10,7 +11,10 @@ const finePaymentSchema = new mongoose.Schema(
         amount: {
             type: Number,
             required: [true, "Payment amount is required"],
-            min: [1, "Amount must be at least ₹1"],
+            min: [
+                MINIMUM_FINE_PAYMENT_AMOUNT,
+                `Amount must be at least ₹${MINIMUM_FINE_PAYMENT_AMOUNT}`,
+            ],
         },
         month: {
             type: Number,

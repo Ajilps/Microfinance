@@ -1,16 +1,17 @@
 import cron from "node-cron";
 import { applyDueInterestForAllUsers } from "../services/interestAutomationService.js";
-
-const DEFAULT_SCHEDULE = "10 0 * * *";
-const DEFAULT_TIMEZONE = "Asia/Kolkata";
+import {
+  DEFAULT_INTEREST_CRON_SCHEDULE,
+  DEFAULT_TIME_ZONE,
+} from "../config/constants.js";
 
 let activeRun = null;
 let scheduledTask = null;
 const automationState = {
   enabled: false,
   running: false,
-  schedule: DEFAULT_SCHEDULE,
-  timezone: DEFAULT_TIMEZONE,
+  schedule: DEFAULT_INTEREST_CRON_SCHEDULE,
+  timezone: DEFAULT_TIME_ZONE,
   runOnStartup: true,
   lastTrigger: null,
   lastStartedAt: null,
@@ -26,17 +27,17 @@ const enabledBy = (value, defaultValue = true) => {
 
 const getInterestAutomationConfig = (environment = process.env) => {
   const requestedSchedule =
-    environment.INTEREST_CRON_SCHEDULE || DEFAULT_SCHEDULE;
+    environment.INTEREST_CRON_SCHEDULE || DEFAULT_INTEREST_CRON_SCHEDULE;
   const schedule = cron.validate(requestedSchedule)
     ? requestedSchedule
-    : DEFAULT_SCHEDULE;
+    : DEFAULT_INTEREST_CRON_SCHEDULE;
 
   return {
     enabled: enabledBy(environment.INTEREST_CRON_ENABLED),
     runOnStartup: enabledBy(environment.INTEREST_CRON_RUN_ON_STARTUP),
     schedule,
     requestedSchedule,
-    timezone: environment.INTEREST_CRON_TIMEZONE || DEFAULT_TIMEZONE,
+    timezone: environment.INTEREST_CRON_TIMEZONE || DEFAULT_TIME_ZONE,
   };
 };
 

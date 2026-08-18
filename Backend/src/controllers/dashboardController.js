@@ -1,3 +1,10 @@
+import {
+  ADMIN_DASHBOARD_ATTENDANCE_WEEKS,
+  ADMIN_DASHBOARD_HISTORY_MONTHS,
+  ADMIN_DASHBOARD_RECENT_ACTIVITY_LIMIT,
+  ADMIN_DASHBOARD_TOP_MEMBERS_LIMIT,
+  DEFAULT_TIME_ZONE,
+} from "../config/constants.js";
 import Attendance from "../models/attendanceModel.js";
 import BankTransaction from "../models/bankTransactionModel.js";
 import ExtraTransaction from "../models/extraTransactionModel.js";
@@ -13,7 +20,7 @@ import { computeLoanSummary } from "../services/loanLedgerService.js";
 
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
 
-const createMonthBuckets = (now, count = 6) => {
+const createMonthBuckets = (now, count = ADMIN_DASHBOARD_HISTORY_MONTHS) => {
   const buckets = [];
   const currentMonth = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
@@ -211,7 +218,7 @@ const buildDashboardSnapshot = ({
     }))
     .filter((member) => member.amount > 0)
     .sort((left, right) => right.amount - left.amount)
-    .slice(0, 6);
+    .slice(0, ADMIN_DASHBOARD_TOP_MEMBERS_LIMIT);
 
   const attendanceSessions = new Map();
   for (const record of attendance) {
@@ -230,12 +237,12 @@ const buildDashboardSnapshot = ({
   }
   const attendanceTrend = [...attendanceSessions.values()]
     .sort((left, right) => left.date - right.date)
-    .slice(-8)
+    .slice(-ADMIN_DASHBOARD_ATTENDANCE_WEEKS)
     .map((session) => ({
       week: session.date.toLocaleDateString("en-IN", {
         day: "2-digit",
         month: "short",
-        timeZone: "Asia/Kolkata",
+        timeZone: DEFAULT_TIME_ZONE,
       }),
       present: session.present,
       absent: session.absent,
@@ -285,7 +292,7 @@ const buildDashboardSnapshot = ({
     recentMembers: users
       .slice()
       .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt))
-      .slice(0, 5)
+      .slice(0, ADMIN_DASHBOARD_RECENT_ACTIVITY_LIMIT)
       .map(({ _id, name, email, createdAt }) => ({
         _id,
         name,

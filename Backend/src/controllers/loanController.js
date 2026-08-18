@@ -2,6 +2,12 @@ import LoanTransaction from "../models/loanModel.js";
 import User from "../models/userModel.js";
 import AuditLog from "../models/auditLogModel.js";
 import {
+  DAY_IN_MILLISECONDS,
+  LOAN_INTEREST_PERIOD_DAYS,
+  LOAN_PERIOD_MATCH_TOLERANCE_MILLISECONDS,
+  LOAN_SETTLEMENT_TOLERANCE,
+} from "../config/constants.js";
+import {
   calculateInterestPeriods,
   computeLoanSummary,
 } from "../services/loanLedgerService.js";
@@ -148,12 +154,12 @@ const recordInterestEntry = async (req, res) => {
     parsedPeriodEnd,
   ).find(
     (period) =>
-      Math.abs(period.periodStart - parsedPeriodStart) < 24 * 60 * 60 * 1000,
+      Math.abs(period.periodStart - parsedPeriodStart) < DAY_IN_MILLISECONDS,
   );
 
   if (!calculatedPeriod || calculatedPeriod.isPartial) {
     return res.status(400).json({
-      message: "Only completed 28-day interest periods can be recorded",
+      message: `Only completed ${LOAN_INTEREST_PERIOD_DAYS}-day interest periods can be recorded`,
     });
   }
 
@@ -164,8 +170,12 @@ const recordInterestEntry = async (req, res) => {
     user: userId,
     type: "interest",
     "interestPeriod.periodStart": {
-      $gte: new Date(parsedPeriodStart.getTime() - 12 * 60 * 60 * 1000), // ±12 h window
-      $lte: new Date(parsedPeriodStart.getTime() + 12 * 60 * 60 * 1000),
+      $gte: new Date(
+        parsedPeriodStart.getTime() - LOAN_PERIOD_MATCH_TOLERANCE_MILLISECONDS,
+      ),
+      $lte: new Date(
+        parsedPeriodStart.getTime() + LOAN_PERIOD_MATCH_TOLERANCE_MILLISECONDS,
+      ),
     },
   });
 
@@ -184,7 +194,7 @@ const recordInterestEntry = async (req, res) => {
       date: parsedDate,
       note:
         note ||
-        `Interest: 1% of ₹${calculatedPeriod.principalBalance.toFixed(2)} for period ${calculatedPeriod.periodStart.toLocaleDateString()} – ${calculatedPeriod.periodEnd.toLocaleDateString()}`,
+        `Interest: ${calculatedPeriod.interestRate * 100}% of ₹${calculatedPeriod.principalBalance.toFixed(2)} for period ${calculatedPeriod.periodStart.toLocaleDateString()} – ${calculatedPeriod.periodEnd.toLocaleDateString()}`,
       entrySource: "manual",
       recordedBy: req.user._id,
       interestPeriod: {
@@ -202,8 +212,14 @@ const recordInterestEntry = async (req, res) => {
         user: userId,
         type: "interest",
         "interestPeriod.periodStart": {
-          $gte: new Date(parsedPeriodStart.getTime() - 12 * 60 * 60 * 1000),
-          $lte: new Date(parsedPeriodStart.getTime() + 12 * 60 * 60 * 1000),
+          $gte: new Date(
+            parsedPeriodStart.getTime() -
+              LOAN_PERIOD_MATCH_TOLERANCE_MILLISECONDS,
+          ),
+          $lte: new Date(
+            parsedPeriodStart.getTime() +
+              LOAN_PERIOD_MATCH_TOLERANCE_MILLISECONDS,
+          ),
         },
       });
       return res.status(409).json({
@@ -389,7 +405,10 @@ const closeLoan = async (req, res) => {
   } catch (error) {
     return res.status(409).json({ message: error.message });
   }
-  if (Math.abs(parsedExpectedTotal - preview.totalSettlement) > 0.01) {
+  if (
+    Math.abs(parsedExpectedTotal - preview.totalSettlement) >
+    LOAN_SETTLEMENT_TOLERANCE
+  ) {
     return res.status(409).json({
       message:
         "The loan balance changed after the preview. Review the updated settlement before closing.",

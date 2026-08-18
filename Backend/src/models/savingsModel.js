@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MINIMUM_SAVINGS_DEPOSIT_AMOUNT } from "../config/constants.js";
 
 /**
  * SavingsPayment — records each weekly savings deposit for a user.
@@ -10,7 +11,7 @@ import mongoose from "mongoose";
  *
  * Derived values (computed in controller):
  *   - totalSavings          = deposits minus savings withdrawals
- *   - savingsInterest       = totalSavings × 0.01 (admin-only view)
+ *   - savingsInterest       = totalSavings × configured savings interest rate
  *   - currentWeekPaid       = whether a record exists for current week
  */
 const savingsPaymentSchema = new mongoose.Schema(
@@ -34,7 +35,10 @@ const savingsPaymentSchema = new mongoose.Schema(
     amount: {
       type: Number,
       required: [true, "Amount is required"],
-      min: [1, "Amount must be at least 1"],
+      min: [
+        MINIMUM_SAVINGS_DEPOSIT_AMOUNT,
+        `Amount must be at least ${MINIMUM_SAVINGS_DEPOSIT_AMOUNT}`,
+      ],
     },
     note: {
       type: String,

@@ -1,10 +1,9 @@
 import LoanTransaction from "../models/loanModel.js";
+import { INTEREST_AUTOMATION_BATCH_SIZE } from "../config/constants.js";
 import {
   calculateInterestPeriods,
   computeLoanSummary,
 } from "./loanLedgerService.js";
-
-const DEFAULT_BATCH_SIZE = 500;
 
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
 
@@ -41,10 +40,10 @@ const buildInterestDocument = ({
     user: userId,
     type: "interest",
     amount: period.interestAmount,
-    // The accounting date is when the 28-day period became fully due.
+    // The accounting date is when the configured period became fully due.
     date: period.periodEnd,
     entrySource: source,
-    note: `${prefix}: 1% of ₹${period.principalBalance.toFixed(2)} for ${period.periodStart.toLocaleDateString("en-IN")} – ${period.periodEnd.toLocaleDateString("en-IN")}`,
+    note: `${prefix}: ${period.interestRate * 100}% of ₹${period.principalBalance.toFixed(2)} for ${period.periodStart.toLocaleDateString("en-IN")} – ${period.periodEnd.toLocaleDateString("en-IN")}`,
     interestPeriod: {
       periodStart: period.periodStart,
       periodEnd: period.periodEnd,
@@ -101,7 +100,10 @@ const buildInterestUpsertOperation = (entry) => ({
 
 const persistInterestEntries = async (
   entries,
-  { loanModel = LoanTransaction, batchSize = DEFAULT_BATCH_SIZE } = {},
+  {
+    loanModel = LoanTransaction,
+    batchSize = INTEREST_AUTOMATION_BATCH_SIZE,
+  } = {},
 ) => {
   let periodsApplied = 0;
   let totalApplied = 0;

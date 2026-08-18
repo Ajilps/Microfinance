@@ -1,4 +1,5 @@
 import AuditLog from "../models/auditLogModel.js";
+import { SAVINGS_INTEREST_RATE } from "../config/constants.js";
 import SavingsPayment from "../models/savingsModel.js";
 import SavingsWithdrawal from "../models/savingsWithdrawalModel.js";
 import User from "../models/userModel.js";
@@ -209,7 +210,7 @@ const getUserSavingsDetail = async (req, res) => {
   return res.json({
     user,
     ...summary,
-    savingsInterest: roundMoney(summary.totalSavings * 0.01),
+    savingsInterest: roundMoney(summary.totalSavings * SAVINGS_INTEREST_RATE),
     currentWeekPaid,
     payments,
     withdrawals,
@@ -257,7 +258,7 @@ const getAllUsersSavingsOverview = async (req, res) => {
       ...summary,
       paymentsCount: summary.depositCount,
       withdrawalsCount: summary.withdrawalCount,
-      savingsInterest: roundMoney(summary.totalSavings * 0.01),
+      savingsInterest: roundMoney(summary.totalSavings * SAVINGS_INTEREST_RATE),
       lastPaidOn,
       lastWithdrawalOn,
       lastTransactionOn,
@@ -327,11 +328,11 @@ const deleteSavingsPayment = async (req, res) => {
   await payment.deleteOne();
   const summaryBefore = {
     ...before,
-    savingsInterest: roundMoney(before.totalSavings * 0.01),
+    savingsInterest: roundMoney(before.totalSavings * SAVINGS_INTEREST_RATE),
   };
   const summaryAfter = {
     ...after,
-    savingsInterest: roundMoney(after.totalSavings * 0.01),
+    savingsInterest: roundMoney(after.totalSavings * SAVINGS_INTEREST_RATE),
   };
 
   try {

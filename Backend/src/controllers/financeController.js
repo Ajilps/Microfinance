@@ -1,13 +1,12 @@
 import ExtraTransaction from "../models/extraTransactionModel.js";
+import { DATE_ONLY_PATTERN } from "../config/constants.js";
 import FinePayment from "../models/finePaymentModel.js";
 import LoanTransaction from "../models/loanModel.js";
 import SavingsPayment from "../models/savingsModel.js";
 import SavingsWithdrawal from "../models/savingsWithdrawalModel.js";
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
 const parseDateInput = (value, fieldName) => {
-  if (!value || typeof value !== "string" || !DATE_PATTERN.test(value)) {
+  if (!value || typeof value !== "string" || !DATE_ONLY_PATTERN.test(value)) {
     throw new Error(`${fieldName} must use YYYY-MM-DD format`);
   }
 

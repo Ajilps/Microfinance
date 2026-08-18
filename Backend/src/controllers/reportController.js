@@ -1,17 +1,21 @@
 import { Parser } from "json2csv";
 
+import {
+  REPORT_SCOPES,
+  SAVINGS_INTEREST_RATE,
+} from "../config/constants.js";
 import LoanTransaction from "../models/loanModel.js";
 import SavingsPayment from "../models/savingsModel.js";
 import SavingsWithdrawal from "../models/savingsWithdrawalModel.js";
 import User from "../models/userModel.js";
 import { computeLoanSummary } from "../services/loanLedgerService.js";
 
-const REPORT_SCOPES = new Set(["monthly", "all"]);
+const validReportScopes = new Set(REPORT_SCOPES);
 
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
 
 const getReportPeriod = ({ scope = "monthly", month, year } = {}) => {
-  if (!REPORT_SCOPES.has(scope)) {
+  if (!validReportScopes.has(scope)) {
     throw new Error("scope must be 'monthly' or 'all'");
   }
 
@@ -200,7 +204,7 @@ const buildSavingsReport = ({
       amountWithdrawn: roundMoney(amountWithdrawn),
       netSavingsMovement: roundMoney(amountSaved - amountWithdrawn),
       savingsBalance: roundMoney(savingsBalance),
-      savingsInterest: roundMoney(savingsBalance * 0.01),
+      savingsInterest: roundMoney(savingsBalance * SAVINGS_INTEREST_RATE),
       lastPaidOn,
       lastWithdrawalOn,
       lastActivityOn,
@@ -308,7 +312,8 @@ const sendReportCsv = (type) => async (req, res) => {
             "Withdrawn in Period (INR)": row.amountWithdrawn,
             "Net Savings Movement (INR)": row.netSavingsMovement,
             "Savings Balance (INR)": row.savingsBalance,
-            "Savings Interest 1% (INR)": row.savingsInterest,
+            [`Savings Interest ${SAVINGS_INTEREST_RATE * 100}% (INR)`]:
+              row.savingsInterest,
             "Last Paid On": row.lastPaidOn
               ? new Date(row.lastPaidOn).toISOString().slice(0, 10)
               : "",

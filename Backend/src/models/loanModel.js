@@ -1,4 +1,8 @@
 import mongoose from "mongoose";
+import {
+  LOAN_INTEREST_RATE,
+  MINIMUM_TRANSACTION_AMOUNT,
+} from "../config/constants.js";
 
 /**
  * LoanTransaction — audit log of all loan-related events for a user.
@@ -6,7 +10,7 @@ import mongoose from "mongoose";
  * Types:
  *   loan        → new loan disbursed to user (increases principal balance)
  *   repayment   → user paid back money (decreases principal OR interest balance)
- *   interest    → 1% of PRINCIPAL recorded every 28 days (never added to principal)
+ *   interest    → configured rate on PRINCIPAL for each configured period
  *   fine        → optional penalty added by admin (increases interest balance)
  *   closure     → full principal + interest settlement that closes a loan cycle
  *
@@ -30,7 +34,7 @@ const loanTransactionSchema = new mongoose.Schema(
     amount: {
       type: Number,
       required: [true, "Amount is required"],
-      min: [0.01, "Amount must be greater than 0"],
+      min: [MINIMUM_TRANSACTION_AMOUNT, "Amount must be greater than 0"],
     },
     // For repayment transactions: specifies whether payment reduces principal or interest
     paymentTarget: {
@@ -48,7 +52,7 @@ const loanTransactionSchema = new mongoose.Schema(
       periodStart: { type: Date, default: null },
       periodEnd: { type: Date, default: null },
       principalBalance: { type: Number, default: null },
-      interestRate: { type: Number, default: 0.01 }, // 1% default
+      interestRate: { type: Number, default: LOAN_INTEREST_RATE },
     },
     // One atomic, auditable settlement created only by the Close Loan workflow.
     closureDetails: {
@@ -64,7 +68,7 @@ const loanTransactionSchema = new mongoose.Schema(
           periodStart: { type: Date, required: true },
           periodEnd: { type: Date, required: true },
           principalBalance: { type: Number, required: true },
-          interestRate: { type: Number, default: 0.01 },
+          interestRate: { type: Number, default: LOAN_INTEREST_RATE },
           interestAmount: { type: Number, required: true },
           daysInPeriod: { type: Number, required: true },
           isPartial: { type: Boolean, default: true },

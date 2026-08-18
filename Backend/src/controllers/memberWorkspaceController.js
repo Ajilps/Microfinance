@@ -1,4 +1,8 @@
 import Attendance from "../models/attendanceModel.js";
+import {
+  ATTENDANCE_FINE_AMOUNT,
+  DASHBOARD_HISTORY_MONTHS,
+} from "../config/constants.js";
 import FinePayment from "../models/finePaymentModel.js";
 import LoanTransaction from "../models/loanModel.js";
 import ProfitDistribution from "../models/profitDistributionModel.js";
@@ -6,8 +10,6 @@ import SavingsPayment from "../models/savingsModel.js";
 import SavingsWithdrawal from "../models/savingsWithdrawalModel.js";
 import User from "../models/userModel.js";
 import { computeLoanSummary } from "../services/loanLedgerService.js";
-
-const ATTENDANCE_FINE = 20;
 
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
 
@@ -22,7 +24,7 @@ const isInRange = (value, start, endExclusive) => {
   return time >= start.getTime() && time < endExclusive.getTime();
 };
 
-const createMonthBuckets = (now, count = 12) => {
+const createMonthBuckets = (now, count = DASHBOARD_HISTORY_MONTHS) => {
   const currentMonth = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
   );
@@ -192,7 +194,7 @@ const buildMemberWorkspace = ({
     (sum, count) => sum + count,
     0,
   );
-  const fineOwed = attendanceCounts.absent * ATTENDANCE_FINE;
+  const fineOwed = attendanceCounts.absent * ATTENDANCE_FINE_AMOUNT;
   const finePaid = finePayments.reduce(
     (sum, payment) => sum + Number(payment.amount || 0),
     0,

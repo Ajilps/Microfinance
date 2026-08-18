@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MINIMUM_TRANSACTION_AMOUNT } from "../config/constants.js";
 
 const profitAllocationSchema = new mongoose.Schema(
   {
@@ -29,7 +30,10 @@ const profitDistributionSchema = new mongoose.Schema(
     amount: {
       type: Number,
       required: true,
-      min: [0.01, "Distribution amount must be greater than 0"],
+      min: [
+        MINIMUM_TRANSACTION_AMOUNT,
+        "Distribution amount must be greater than 0",
+      ],
     },
     // Identifies the exact calculation state used for this payout. The active
     // partial unique index prevents duplicate submissions while allowing a

@@ -1,4 +1,9 @@
 import { Parser } from "json2csv";
+import {
+  ATTENDANCE_CSV_FIELDS,
+  ATTENDANCE_FINE_AMOUNT,
+  ATTENDANCE_WEEK_START_DAY,
+} from "../config/constants.js";
 import Attendance from "../models/attendanceModel.js";
 import FinePayment from "../models/finePaymentModel.js";
 import User from "../models/userModel.js";
@@ -22,27 +27,12 @@ const getWeekStart = (date, startDay = 0) => {
 // Attendance is weekly throughout the application. Keeping the boundary on the
 // server prevents different admin screens from producing different uniqueness
 // keys for the same meeting date.
-const ATTENDANCE_WEEK_START_DAY = 1;
-
 const getWeekRange = (date) => {
   const start = getWeekStart(date, ATTENDANCE_WEEK_START_DAY);
   const end = new Date(start);
   end.setDate(end.getDate() + 7);
   return { start, end };
 };
-
-const ATTENDANCE_CSV_FIELDS = [
-  "Name",
-  "Email",
-  "Total Weeks",
-  "Present",
-  "Absent",
-  "Late",
-  "Leave",
-  "Fine Owed (INR)",
-  "Total Paid (INR)",
-  "Balance (INR)",
-];
 
 const buildAttendanceSummary = (users, records, finePayments) =>
   users.map((user) => {
@@ -54,7 +44,7 @@ const buildAttendanceSummary = (users, records, finePayments) =>
     const absent = userRecords.filter((record) => record.status === "absent").length;
     const late = userRecords.filter((record) => record.status === "late").length;
     const leave = userRecords.filter((record) => record.status === "leave").length;
-    const fineOwed = absent * 20;
+    const fineOwed = absent * ATTENDANCE_FINE_AMOUNT;
     const totalPaid = finePayments
       .filter((payment) => String(payment.user?._id || payment.user) === userId)
       .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
@@ -89,7 +79,7 @@ const attendanceSummaryToCsvRows = (summary) =>
   }));
 
 const calculateFineTotals = (absentCount, payments) => {
-  const fineOwed = Number(absentCount || 0) * 20;
+  const fineOwed = Number(absentCount || 0) * ATTENDANCE_FINE_AMOUNT;
   const totalPaid = payments.reduce(
     (sum, payment) => sum + Number(payment.amount || 0),
     0,
@@ -366,7 +356,7 @@ const downloadMonthlyCSV = async (req, res) => {
     const absent = userRecords.filter((r) => r.status === "absent").length;
     const late = userRecords.filter((r) => r.status === "late").length;
     const leave = userRecords.filter((r) => r.status === "leave").length;
-    const fineOwed = absent * 20;
+    const fineOwed = absent * ATTENDANCE_FINE_AMOUNT;
 
     const totalPaid = finePayments
       .filter((p) => p.user.toString() === user._id.toString())
@@ -504,7 +494,7 @@ const getUserFineReport = async (req, res) => {
   const present = records.filter((r) => r.status === "present").length;
   const late = records.filter((r) => r.status === "late").length;
   const leave = records.filter((r) => r.status === "leave").length;
-  const fineOwed = absent * 20;
+  const fineOwed = absent * ATTENDANCE_FINE_AMOUNT;
 
   const payments = await FinePayment.find({ user: userId, month: m, year: y });
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -574,7 +564,7 @@ const getMyAttendanceSummary = async (req, res) => {
   const absent = records.filter((r) => r.status === "absent").length;
   const late = records.filter((r) => r.status === "late").length;
   const leave = records.filter((r) => r.status === "leave").length;
-  const fineOwed = absent * 20;
+  const fineOwed = absent * ATTENDANCE_FINE_AMOUNT;
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
   const allTimeFine = calculateFineTotals(allTimeAbsentCount, allTimePayments);

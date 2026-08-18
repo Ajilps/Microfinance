@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MINIMUM_TRANSACTION_AMOUNT } from "../config/constants.js";
 
 const savingsWithdrawalSchema = new mongoose.Schema(
   {
@@ -10,7 +11,7 @@ const savingsWithdrawalSchema = new mongoose.Schema(
     amount: {
       type: Number,
       required: [true, "Amount is required"],
-      min: [0.01, "Amount must be greater than 0"],
+      min: [MINIMUM_TRANSACTION_AMOUNT, "Amount must be greater than 0"],
     },
     withdrawalDate: {
       type: Date,

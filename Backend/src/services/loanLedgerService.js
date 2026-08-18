@@ -1,6 +1,8 @@
-const DAY_MS = 24 * 60 * 60 * 1000;
-const INTEREST_PERIOD_DAYS = 28;
-const INTEREST_RATE = 0.01;
+import {
+  DAY_IN_MILLISECONDS,
+  LOAN_INTEREST_PERIOD_DAYS,
+  LOAN_INTEREST_RATE,
+} from "../config/constants.js";
 
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
 
@@ -87,7 +89,7 @@ const computeLoanSummary = (transactions) => {
 
 /**
  * Split the principal ledger into independent loan cycles. Only an explicit
- * closure ends a cycle. This preserves the established 28-day calendar for
+ * closure ends a cycle. This preserves the configured interest calendar for
  * legacy ledgers where principal once reached zero and a later loan was added
  * without a formal closure. A loan after a new closure gets a fresh calendar.
  */
@@ -149,7 +151,7 @@ const getRecordedInterestPeriods = (transactions) => {
 };
 
 /**
- * Builds all completed and partial 28-day periods through a target date.
+ * Builds all completed and partial interest periods through a target date.
  * Recorded periods are matched by period start, so calculations are repeatable
  * and closure projections cannot be applied twice.
  */
@@ -188,27 +190,30 @@ const calculateInterestPeriods = (transactions, toDate = new Date()) => {
 
     let periodStart = new Date(cycle.start);
     while (periodStart < cycleEnd) {
-      const nominalPeriodEnd = addUtcDays(periodStart, INTEREST_PERIOD_DAYS);
+      const nominalPeriodEnd = addUtcDays(
+        periodStart,
+        LOAN_INTEREST_PERIOD_DAYS,
+      );
       const isPartial = nominalPeriodEnd > cycleEnd;
       const actualPeriodEnd = isPartial
         ? new Date(cycleEnd)
         : new Date(nominalPeriodEnd);
       const daysInPeriod = Math.max(
         0,
-        Math.floor((actualPeriodEnd - periodStart) / DAY_MS),
+        Math.floor((actualPeriodEnd - periodStart) / DAY_IN_MILLISECONDS),
       );
       const principalBalance = getPrincipalAtDate(periodStart);
 
       if (principalBalance > 0 && daysInPeriod > 0) {
         const interestAmount = roundMoney(
           isPartial
-            ? (principalBalance * INTEREST_RATE * daysInPeriod) /
-                INTEREST_PERIOD_DAYS
-            : principalBalance * INTEREST_RATE,
+            ? (principalBalance * LOAN_INTEREST_RATE * daysInPeriod) /
+                LOAN_INTEREST_PERIOD_DAYS
+            : principalBalance * LOAN_INTEREST_RATE,
         );
         const recordedEntry = recordedInterest.find(
           (entry) =>
-            Math.abs(entry.periodStart - periodStart) < DAY_MS,
+            Math.abs(entry.periodStart - periodStart) < DAY_IN_MILLISECONDS,
         );
 
         periods.push({
@@ -217,7 +222,7 @@ const calculateInterestPeriods = (transactions, toDate = new Date()) => {
           daysInPeriod,
           isPartial,
           principalBalance,
-          interestRate: INTEREST_RATE,
+          interestRate: LOAN_INTEREST_RATE,
           interestAmount,
           alreadyRecorded: Boolean(recordedEntry),
           recordedTransactionId: recordedEntry?.transactionId || null,

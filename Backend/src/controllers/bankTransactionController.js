@@ -1,10 +1,10 @@
 import BankTransaction from "../models/bankTransactionModel.js";
+import { DATE_ONLY_PATTERN } from "../config/constants.js";
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
 
 const parseBankDate = (value, fieldName) => {
-  if (!value || typeof value !== "string" || !DATE_PATTERN.test(value)) {
+  if (!value || typeof value !== "string" || !DATE_ONLY_PATTERN.test(value)) {
     throw new Error(`${fieldName} must use YYYY-MM-DD format`);
   }
   const date = new Date(`${value}T00:00:00.000Z`);

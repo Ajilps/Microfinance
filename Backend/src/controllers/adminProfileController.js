@@ -1,17 +1,9 @@
+import {
+  ADMIN_EMAIL_PATTERN,
+  ADMIN_PASSWORD_REQUIREMENTS,
+} from "../config/constants.js";
 import User from "../models/userModel.js";
 import { generateToken } from "../utils/authToken.js";
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_REQUIREMENTS = [
-  { test: (value) => value.length >= 8, message: "at least 8 characters" },
-  { test: (value) => /[A-Z]/.test(value), message: "one uppercase letter" },
-  { test: (value) => /[a-z]/.test(value), message: "one lowercase letter" },
-  { test: (value) => /[0-9]/.test(value), message: "one number" },
-  {
-    test: (value) => /[!@#$%^&*(),.?":{}|<>_\-+=]/.test(value),
-    message: "one special character",
-  },
-];
 
 const normalizeAdminProfileInput = ({ name, email } = {}) => {
   const normalizedName = String(name || "").trim();
@@ -20,7 +12,10 @@ const normalizeAdminProfileInput = ({ name, email } = {}) => {
   if (normalizedName.length < 2 || normalizedName.length > 100) {
     throw new Error("Name must be between 2 and 100 characters");
   }
-  if (!EMAIL_PATTERN.test(normalizedEmail) || normalizedEmail.length > 254) {
+  if (
+    !ADMIN_EMAIL_PATTERN.test(normalizedEmail) ||
+    normalizedEmail.length > 254
+  ) {
     throw new Error("Please enter a valid email address");
   }
 
@@ -29,9 +24,9 @@ const normalizeAdminProfileInput = ({ name, email } = {}) => {
 
 const validateAdminPassword = (password) => {
   const value = String(password || "");
-  const missing = PASSWORD_REQUIREMENTS.filter(({ test }) => !test(value)).map(
-    ({ message }) => message,
-  );
+  const missing = ADMIN_PASSWORD_REQUIREMENTS.filter(
+    ({ test }) => !test(value),
+  ).map(({ message }) => message);
 
   if (missing.length > 0) {
     throw new Error(`New password must include ${missing.join(", ")}`);
