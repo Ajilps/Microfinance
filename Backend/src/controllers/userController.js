@@ -22,16 +22,18 @@ const registerUser = async (req, res) => {
   }
 
   // Public registration must never accept a privileged role from the client.
-  const user = await User.create({ name, email, password, role: "user" });
-  const token = generateToken(user);
+  // const user = await User.create({ name, email, password, role: "user" });
+  // const token = generateToken(user);
 
-  res.status(201).json({
-    _id: user._id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    token,
-  });
+  // res.status(201).json({
+  //   _id: user._id,
+  //   name: user.name,
+  //   email: user.email,
+  //   role: user.role,
+  //   token,
+  // });
+  // For now, public registration is disabled. Only admin can create users.
+  res.status(403).json({ message: "Public registration is disabled" });
 };
 
 // @desc    Login user
@@ -74,7 +76,9 @@ const getUsers = async (req, res) => {
 // @access  Private
 const getUserById = async (req, res) => {
   if (String(req.user._id) !== req.params.id) {
-    return res.status(403).json({ message: "You can only view your own account" });
+    return res
+      .status(403)
+      .json({ message: "You can only view your own account" });
   }
 
   const user = await User.findById(req.params.id);
@@ -89,7 +93,9 @@ const getUserById = async (req, res) => {
 // @access  Private
 const updateUser = async (req, res) => {
   if (String(req.user._id) !== req.params.id) {
-    return res.status(403).json({ message: "You can only update your own account" });
+    return res
+      .status(403)
+      .json({ message: "You can only update your own account" });
   }
 
   const user = await User.findById(req.params.id);
@@ -116,7 +122,9 @@ const updateUser = async (req, res) => {
 // @access  Private
 const deleteUser = async (req, res) => {
   if (String(req.user._id) !== req.params.id) {
-    return res.status(403).json({ message: "You can only delete your own account" });
+    return res
+      .status(403)
+      .json({ message: "You can only delete your own account" });
   }
 
   const user = await User.findById(req.params.id);

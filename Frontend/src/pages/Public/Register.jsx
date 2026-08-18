@@ -74,7 +74,7 @@ const Register = () => {
         <h1>Create Account</h1>
         <p>Join our microfinance community</p>
       </div>
-
+    <div className= "alert alert-info"><span className="alert-text"> Public user registration is disabled. contact admin to create an account.</span></div>
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         {/* Name */}
         <div className="input-group">

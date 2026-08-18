@@ -109,15 +109,15 @@ const Login = () => {
           ) : 'Login'}
         </button>
       </form>
-
-      <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+{/* user public registration is disabled */}
+      {/* <div style={{ textAlign: 'center', marginTop: '2rem' }}>
         <p style={{ color: '#64748b' }}>
           Don&apos;t have an account?{' '}
           <Link to="/register" style={{ color: 'var(--primary)', fontWeight: 600 }}>
             Create account
           </Link>
         </p>
-      </div>
+      </div> */}
     </>
   );
 };

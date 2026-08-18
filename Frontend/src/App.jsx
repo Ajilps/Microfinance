@@ -58,7 +58,8 @@ const App = () => {
           <Route element={<GuestRoute />}>
             <Route element={<PublicLayout />}>
               <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+              {/* user public registration is disabled */}
+              {/* <Route path="/register" element={<Register />} /> */}
             </Route>
           </Route>
 
