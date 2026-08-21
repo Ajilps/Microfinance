@@ -281,7 +281,6 @@ const updateExtraTransaction = async (req, res) => {
   if (!entry) {
     return res.status(404).json({ message: "Income or expense record not found" });
   }
-
   Object.assign(entry, values, { updatedBy: req.user._id });
   await entry.save();
   await entry.populate([

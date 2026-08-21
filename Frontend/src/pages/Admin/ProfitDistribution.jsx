@@ -15,9 +15,25 @@ const money = (value) =>
     currency: 'INR',
     minimumFractionDigits: 2,
   }).format(Number(value || 0));
+const today = moment().format('YYYY-MM-DD');
+const getMinimumFromDate = (distributions) => {
+  const latestActive = distributions
+    .filter((distribution) => distribution.status !== 'reversed')
+    .sort(
+      (left, right) =>
+        new Date(right.distributionDate) - new Date(left.distributionDate),
+    )[0];
+  const cutoff = latestActive?.tillDate
+    || latestActive?.asOfDate
+    || latestActive?.distributionDate;
+  return cutoff ? moment.utc(cutoff).add(1, 'day').format('YYYY-MM-DD') : '';
+};
 
 const ProfitDistribution = () => {
-  const [asOfDate, setAsOfDate] = useState(moment().format('YYYY-MM-DD'));
+  const [fromDate, setFromDate] = useState(moment().startOf('month').format('YYYY-MM-DD'));
+  const [tillDate, setTillDate] = useState(today);
+  const [minimumFromDate, setMinimumFromDate] = useState('');
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [overview, setOverview] = useState(null);
   const [history, setHistory] = useState([]);
   const [distributionAmount, setDistributionAmount] = useState('');
@@ -33,13 +49,23 @@ const ProfitDistribution = () => {
   const fetchHistory = useCallback(async () => {
     try {
       const response = await api.get('/admin/finance/profit/distributions');
-      setHistory(response.data || []);
+      const distributions = response.data || [];
+      setHistory(distributions);
       setHistoryPage(1);
+      return distributions;
     } catch (error) {
       toast.error(
         error.response?.data?.message || 'Failed to load profit distributions',
       );
+      return [];
     }
+  }, []);
+
+  const resetPeriodFromHistory = useCallback((distributions) => {
+    const nextAvailableDate = getMinimumFromDate(distributions);
+    setMinimumFromDate(nextAvailableDate);
+    setFromDate(nextAvailableDate || moment().startOf('month').format('YYYY-MM-DD'));
+    setTillDate(today);
   }, []);
 
   const fetchOverview = useCallback(
@@ -48,7 +74,8 @@ const ProfitDistribution = () => {
       try {
         const response = await api.get('/admin/finance/profit', {
           params: {
-            asOfDate,
+            fromDate,
+            tillDate,
             ...(amount !== undefined ? { amount } : {}),
           },
         });
@@ -64,13 +91,35 @@ const ProfitDistribution = () => {
         setLoading(false);
       }
     },
-    [asOfDate],
+    [fromDate, tillDate],
   );
 
   useEffect(() => {
+    const initialize = async () => {
+      const distributions = await fetchHistory();
+      resetPeriodFromHistory(distributions);
+      setHistoryLoaded(true);
+    };
+    initialize();
+  }, [fetchHistory, resetPeriodFromHistory]);
+
+  const hasAvailablePeriod =
+    historyLoaded &&
+    Boolean(fromDate) &&
+    Boolean(tillDate) &&
+    (!minimumFromDate || fromDate >= minimumFromDate) &&
+    fromDate <= tillDate &&
+    tillDate <= today;
+
+  useEffect(() => {
+    if (!historyLoaded) return;
+    if (!hasAvailablePeriod) {
+      setOverview(null);
+      setLoading(false);
+      return;
+    }
     fetchOverview();
-    fetchHistory();
-  }, [fetchHistory, fetchOverview]);
+  }, [fetchOverview, hasAvailablePeriod, historyLoaded]);
 
   const calculateShares = async () => {
     const amount = Number(distributionAmount);
@@ -94,7 +143,7 @@ const ProfitDistribution = () => {
 
     const result = await Swal.fire({
       title: 'Record profit distribution?',
-      html: `<strong>${money(amount)}</strong> will be recorded for ${overview.allocations.length} members based on savings of ${money(overview.totalSavings)}.`,
+      html: `<strong>${money(amount)}</strong> will be recorded for ${overview.allocations.length} members for ${moment(fromDate).format('DD MMM YYYY')} through ${moment(tillDate).format('DD MMM YYYY')}.`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Record Distribution',
@@ -107,11 +156,13 @@ const ProfitDistribution = () => {
     setRecording(true);
     try {
       await api.post('/admin/finance/profit/distributions', {
-        asOfDate,
+        fromDate,
+        tillDate,
         amount,
       });
       toast.success('Profit distribution recorded');
-      await Promise.all([fetchOverview(), fetchHistory()]);
+      const distributions = await fetchHistory();
+      resetPeriodFromHistory(distributions);
     } catch (error) {
       toast.error(
         error.response?.data?.message || 'Failed to record profit distribution',
@@ -152,7 +203,8 @@ const ProfitDistribution = () => {
         { reason: result.value || '' },
       );
       toast.success('Profit allocation reversed');
-      await Promise.all([fetchOverview(), fetchHistory()]);
+      const distributions = await fetchHistory();
+      resetPeriodFromHistory(distributions);
     } catch (error) {
       toast.error(
         error.response?.data?.message || 'Failed to un-allocate profit',
@@ -221,27 +273,60 @@ const ProfitDistribution = () => {
       <div className="page-header flex-between" style={{ gap: '1rem', flexWrap: 'wrap' }}>
         <div>
           <h2>Profit & Distribution</h2>
-          <p>Review profit through a selected date and allocate collected profit by member savings.</p>
+          <p>Review profit for a selected period and allocate collected profit by member savings.</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'end', flexWrap: 'wrap' }}>
           <div className="input-group" style={{ marginBottom: 0 }}>
-            <label className="input-label" htmlFor="profit-as-of-date">Totals Till Date</label>
+            <label className="input-label" htmlFor="profit-from-date">From Date</label>
             <input
-              id="profit-as-of-date"
+              id="profit-from-date"
               type="date"
               className="input-field"
-              max={moment().format('YYYY-MM-DD')}
-              value={asOfDate}
-              onChange={(event) => setAsOfDate(event.target.value)}
+              min={minimumFromDate || undefined}
+              max={tillDate || moment().format('YYYY-MM-DD')}
+              value={fromDate}
+              required
+              onChange={(event) => {
+                const value = event.target.value;
+                if (value && (!minimumFromDate || value >= minimumFromDate)) {
+                  setFromDate(value);
+                }
+              }}
             />
           </div>
-          <button className="btn btn-secondary" onClick={() => fetchOverview()}>
+          <div className="input-group" style={{ marginBottom: 0 }}>
+            <label className="input-label" htmlFor="profit-till-date">Till Date</label>
+            <input
+              id="profit-till-date"
+              type="date"
+              className="input-field"
+              min={fromDate}
+              max={today}
+              value={tillDate}
+              required
+              onChange={(event) => {
+                if (event.target.value) setTillDate(event.target.value);
+              }}
+            />
+          </div>
+          <button
+            className="btn btn-secondary"
+            onClick={() => fetchOverview()}
+            disabled={!hasAvailablePeriod}
+          >
             ↻ Refresh Totals
           </button>
         </div>
       </div>
 
-      {loading && !overview ? (
+      {historyLoaded && !hasAvailablePeriod ? (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <h3 style={{ marginBottom: '0.35rem' }}>No new profit period is available yet</h3>
+          <p style={{ color: 'var(--text-muted)', margin: 0 }}>
+            Profit has already been distributed through {moment.utc(minimumFromDate).subtract(1, 'day').format('DD MMM YYYY')}. The next period starts on {moment.utc(minimumFromDate).format('DD MMM YYYY')}.
+          </p>
+        </div>
+      ) : loading && !overview ? (
         <div className="spinner" />
       ) : !overview ? null : (
         <>
@@ -303,7 +388,7 @@ const ProfitDistribution = () => {
               <div>
                 <h3 style={{ marginBottom: '0.25rem' }}>Cash Available for Distribution</h3>
                 <p style={{ margin: 0, color: 'var(--text-muted)' }}>
-                  Only collected interest and other cash income are distributable.
+                  Only cash profit generated from {moment(fromDate).format('DD MMM YYYY')} through {moment(tillDate).format('DD MMM YYYY')} is distributable.
                 </p>
               </div>
               <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--emerald-400)' }}>
@@ -439,7 +524,8 @@ const ProfitDistribution = () => {
               <table className="data-table" style={{ minWidth: '1050px' }}>
                 <thead>
                   <tr>
-                    <th>Date</th>
+                    <th>Profit Period</th>
+                    <th>Distribution Date</th>
                     <th>Amount</th>
                     <th>Status</th>
                     <th>Total Savings</th>
@@ -455,6 +541,11 @@ const ProfitDistribution = () => {
                     const isLocked = distribution.unallocationLocked === true;
                     return (
                       <tr key={distribution._id} style={isReversed ? { opacity: 0.72 } : undefined}>
+                        <td>
+                          {distribution.fromDate
+                            ? `${moment.utc(distribution.fromDate).format('DD MMM YYYY')} – ${moment.utc(distribution.tillDate || distribution.asOfDate).format('DD MMM YYYY')}`
+                            : `Through ${moment.utc(distribution.asOfDate).format('DD MMM YYYY')}`}
+                        </td>
                         <td>{moment.utc(distribution.distributionDate).format('DD MMM YYYY')}</td>
                         <td
                           style={{

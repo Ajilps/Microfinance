@@ -13,7 +13,8 @@ import { computeLoanSummary } from "../services/loanLedgerService.js";
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
 
 const createDistributionCalculationKey = ({
-  asOfDate,
+  fromDate,
+  tillDate,
   summary,
   amount,
   allocations,
@@ -21,8 +22,9 @@ const createDistributionCalculationKey = ({
   createHash("sha256")
     .update(
       JSON.stringify({
-        version: 1,
-        asOfDate,
+        version: 2,
+        fromDate,
+        tillDate,
         amount: roundMoney(amount),
         cashProfit: summary.cashProfit,
         previouslyDistributed: summary.previouslyDistributed,
@@ -35,22 +37,56 @@ const createDistributionCalculationKey = ({
     )
     .digest("hex");
 
-const getAsOfRange = (value) => {
+const parseProfitDate = (value, fieldName) => {
   if (!value || typeof value !== "string" || !DATE_ONLY_PATTERN.test(value)) {
-    throw new Error("asOfDate must use YYYY-MM-DD format");
+    throw new Error(`${fieldName} must use YYYY-MM-DD format`);
   }
-  const start = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(start.getTime()) || start.toISOString().slice(0, 10) !== value) {
-    throw new Error("asOfDate must be a valid date");
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw new Error(`${fieldName} must be a valid date`);
   }
+  return date;
+};
+
+const getProfitRange = (fromDate, tillDate) => {
+  const start = parseProfitDate(fromDate, "fromDate");
+  const end = parseProfitDate(tillDate, "tillDate");
   const today = new Date();
   today.setUTCHours(23, 59, 59, 999);
-  if (start > today) {
-    throw new Error("asOfDate cannot be in the future");
+  if (end > today) {
+    throw new Error("tillDate cannot be in the future");
   }
-  const endExclusive = new Date(start);
+  if (start > end) {
+    throw new Error("fromDate must be on or before tillDate");
+  }
+  const endExclusive = new Date(end);
   endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-  return { start, endExclusive, value };
+  return { start, end, endExclusive, fromDate, tillDate };
+};
+
+// Retained for callers that only need validation of a single historical date.
+const getAsOfRange = (value) => {
+  const range = getProfitRange(value, value);
+  return { start: range.start, endExclusive: range.endExclusive, value };
+};
+
+const validateProfitPeriodCutoff = (range, latestDistribution) => {
+  if (!latestDistribution) return;
+
+  const cutoffValue =
+    latestDistribution.tillDate ||
+    latestDistribution.asOfDate ||
+    latestDistribution.distributionDate;
+  const cutoffDate = new Date(cutoffValue);
+  if (Number.isNaN(cutoffDate.getTime())) return;
+  cutoffDate.setUTCHours(0, 0, 0, 0);
+
+  if (range.start <= cutoffDate) {
+    const cutoffLabel = cutoffDate.toISOString().slice(0, 10);
+    throw new Error(
+      `fromDate must be after the last distributed profit date (${cutoffLabel})`,
+    );
+  }
 };
 
 const buildProfitSummary = ({
@@ -87,7 +123,10 @@ const buildProfitSummary = ({
   const cashRevenue =
     loanSummary.totalInterestRepaid + attendanceFineIncome + otherIncome;
   const cashProfit = cashRevenue - expenses;
-  const availableToDistribute = Math.max(0, cashProfit - previouslyDistributed);
+  const availableToDistribute = Math.max(
+    0,
+    cashProfit - previouslyDistributed,
+  );
   const unpaidInterest = Math.max(
     0,
     loanSummary.totalInterestAccrued - loanSummary.totalInterestRepaid,
@@ -185,9 +224,17 @@ const buildProfitAllocations = ({
   return { totalSavings, allocations };
 };
 
-const loadProfitData = async (asOfDate, requestedAmount) => {
-  const range = getAsOfRange(asOfDate);
-  const dateFilter = { $lt: range.endExclusive };
+const loadProfitData = async (fromDate, tillDate, requestedAmount) => {
+  const range = getProfitRange(fromDate, tillDate);
+  const latestDistribution = await ProfitDistribution.findOne({
+    status: { $ne: "reversed" },
+  })
+    .sort({ distributionDate: -1, createdAt: -1 })
+    .select("tillDate asOfDate distributionDate");
+  validateProfitPeriodCutoff(range, latestDistribution);
+
+  const dateFilter = { $gte: range.start, $lt: range.endExclusive };
+  const savingsDateFilter = { $lt: range.endExclusive };
   const [
     loans,
     extras,
@@ -202,8 +249,8 @@ const loadProfitData = async (asOfDate, requestedAmount) => {
       ExtraTransaction.find({ transactionDate: dateFilter }),
       ProfitDistribution.find({ distributionDate: dateFilter }),
       User.find({ role: "user" }).select("name email").sort({ name: 1 }),
-      SavingsPayment.find({ paidOn: dateFilter }),
-      SavingsWithdrawal.find({ withdrawalDate: dateFilter }),
+      SavingsPayment.find({ paidOn: savingsDateFilter }),
+      SavingsWithdrawal.find({ withdrawalDate: savingsDateFilter }),
       FinePayment.find({ paidOn: dateFilter }),
     ]);
 
@@ -233,13 +280,16 @@ const loadProfitData = async (asOfDate, requestedAmount) => {
     amount: roundMoney(parsedAmount),
   });
   const calculationKey = createDistributionCalculationKey({
-    asOfDate: range.value,
+    fromDate: range.fromDate,
+    tillDate: range.tillDate,
     summary,
     amount: parsedAmount,
     allocations: allocation.allocations,
   });
   return {
-    asOfDate: range.value,
+    fromDate: range.fromDate,
+    tillDate: range.tillDate,
+    asOfDate: range.tillDate,
     summary,
     distributionAmount: roundMoney(parsedAmount),
     calculationKey,
@@ -249,7 +299,11 @@ const loadProfitData = async (asOfDate, requestedAmount) => {
 
 const getProfitOverview = async (req, res) => {
   try {
-    const data = await loadProfitData(req.query.asOfDate, req.query.amount);
+    const data = await loadProfitData(
+      req.query.fromDate,
+      req.query.tillDate,
+      req.query.amount,
+    );
     return res.json(data);
   } catch (error) {
     return res.status(400).json({ message: error.message });
@@ -263,7 +317,11 @@ const createProfitDistribution = async (req, res) => {
   }
 
   try {
-    const data = await loadProfitData(req.body.asOfDate, req.body.amount);
+    const data = await loadProfitData(
+      req.body.fromDate,
+      req.body.tillDate,
+      req.body.amount,
+    );
     if (data.distributionAmount <= 0) {
       return res
         .status(400)
@@ -274,7 +332,7 @@ const createProfitDistribution = async (req, res) => {
         message: "No member savings are available for profit allocation",
       });
     }
-    const selectedDayEnd = new Date(`${data.asOfDate}T23:59:59.999Z`);
+    const selectedDayEnd = new Date(`${data.tillDate}T23:59:59.999Z`);
     const laterDistribution = await ProfitDistribution.findOne({
       distributionDate: { $gt: selectedDayEnd },
       status: { $ne: "reversed" },
@@ -287,8 +345,10 @@ const createProfitDistribution = async (req, res) => {
     }
 
     const distribution = await ProfitDistribution.create({
-      asOfDate: new Date(`${data.asOfDate}T00:00:00.000Z`),
-      distributionDate: new Date(`${data.asOfDate}T12:00:00.000Z`),
+      fromDate: new Date(`${data.fromDate}T00:00:00.000Z`),
+      tillDate: new Date(`${data.tillDate}T00:00:00.000Z`),
+      asOfDate: new Date(`${data.tillDate}T00:00:00.000Z`),
+      distributionDate: new Date(`${data.tillDate}T12:00:00.000Z`),
       amount: data.distributionAmount,
       calculationKey: data.calculationKey,
       totalSavings: data.totalSavings,
@@ -326,6 +386,18 @@ const unallocateProfitDistribution = async (req, res) => {
     });
   }
 
+  const existing = await ProfitDistribution.findById(req.params.id);
+  if (!existing) {
+    return res.status(404).json({ message: "Profit distribution not found" });
+  }
+  if (existing.status === "reversed" || existing.unallocationLocked) {
+    return res.status(409).json({
+      message: existing.unallocationLocked
+        ? "Un-allocation has been permanently disabled for this distribution"
+        : "This profit distribution has already been un-allocated",
+    });
+  }
+
   const distribution = await ProfitDistribution.findOneAndUpdate(
     {
       _id: req.params.id,
@@ -350,14 +422,11 @@ const unallocateProfitDistribution = async (req, res) => {
     return res.json(distribution);
   }
 
-  const existing = await ProfitDistribution.findById(req.params.id).select(
+  const current = await ProfitDistribution.findById(req.params.id).select(
     "status unallocationLocked",
   );
-  if (!existing) {
-    return res.status(404).json({ message: "Profit distribution not found" });
-  }
   return res.status(409).json({
-    message: existing.unallocationLocked
+    message: current?.unallocationLocked
       ? "Un-allocation has been permanently disabled for this distribution"
       : "This profit distribution has already been un-allocated",
   });
@@ -418,9 +487,11 @@ export {
   createDistributionCalculationKey,
   createProfitDistribution,
   getAsOfRange,
+  getProfitRange,
   getProfitDistributions,
   getProfitOverview,
   loadProfitData,
   lockProfitDistributionUnallocation,
   unallocateProfitDistribution,
+  validateProfitPeriodCutoff,
 };

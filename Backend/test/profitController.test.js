@@ -6,6 +6,8 @@ import {
   buildProfitSummary,
   createDistributionCalculationKey,
   getAsOfRange,
+  getProfitRange,
+  validateProfitPeriodCutoff,
 } from "../src/controllers/profitController.js";
 import ProfitDistribution from "../src/models/profitDistributionModel.js";
 
@@ -120,13 +122,18 @@ test("reversed distributions are restored to available profit", () => {
   });
 
   assert.equal(active.availableToDistribute, 300);
+  assert.equal(active.otherExpenses, 0);
+  assert.equal(active.otherIncome, 0);
   assert.equal(reversed.availableToDistribute, 500);
+  assert.equal(reversed.otherExpenses, 0);
+  assert.equal(reversed.otherIncome, 0);
   assert.equal(reversed.previouslyDistributed, 0);
 });
 
 test("distribution calculation key changes after a recorded payout", () => {
   const common = {
-    asOfDate: "2026-08-12",
+    fromDate: "2026-08-01",
+    tillDate: "2026-08-12",
     amount: 100,
     allocations: [
       { userId: "user-1", savingsBalance: 400 },
@@ -164,4 +171,36 @@ test("new profit distributions allow un-allocation until explicitly locked", () 
 test("as-of date validation rejects future dates", () => {
   assert.throws(() => getAsOfRange("2999-01-01"), /future/);
   assert.throws(() => getAsOfRange("2026-02-31"), /valid date/);
+});
+
+test("profit period validation accepts inclusive dates and rejects invalid ranges", () => {
+  const range = getProfitRange("2026-08-01", "2026-08-12");
+
+  assert.equal(range.start.toISOString(), "2026-08-01T00:00:00.000Z");
+  assert.equal(range.endExclusive.toISOString(), "2026-08-13T00:00:00.000Z");
+  assert.throws(
+    () => getProfitRange("2026-08-13", "2026-08-12"),
+    /on or before/,
+  );
+});
+
+test("profit periods must start after the latest active distribution", () => {
+  const latestDistribution = {
+    tillDate: new Date("2026-03-15T00:00:00.000Z"),
+  };
+
+  assert.throws(
+    () =>
+      validateProfitPeriodCutoff(
+        getProfitRange("2026-03-15", "2026-03-20"),
+        latestDistribution,
+      ),
+    /after the last distributed profit date \(2026-03-15\)/,
+  );
+  assert.doesNotThrow(() =>
+    validateProfitPeriodCutoff(
+      getProfitRange("2026-03-16", "2026-03-20"),
+      latestDistribution,
+    ),
+  );
 });

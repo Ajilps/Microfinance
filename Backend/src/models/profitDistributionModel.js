@@ -19,6 +19,14 @@ const profitAllocationSchema = new mongoose.Schema(
 
 const profitDistributionSchema = new mongoose.Schema(
   {
+    fromDate: {
+      type: Date,
+      default: null,
+    },
+    tillDate: {
+      type: Date,
+      default: null,
+    },
     asOfDate: {
       type: Date,
       required: true,

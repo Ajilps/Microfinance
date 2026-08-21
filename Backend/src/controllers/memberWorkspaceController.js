@@ -210,6 +210,8 @@ const buildMemberWorkspace = ({
         .map((allocation) => ({
           distributionId: distribution._id,
           distributionDate: distribution.distributionDate,
+          fromDate: distribution.fromDate,
+          tillDate: distribution.tillDate,
           asOfDate: distribution.asOfDate,
           status: distribution.status,
           unallocationLocked: Boolean(distribution.unallocationLocked),

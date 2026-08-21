@@ -1050,12 +1050,12 @@ const UserWorkspace = () => {
             {workspace.profitAllocations.length ? (
               <div className="table-scroll">
                 <table className="data-table">
-                  <thead><tr><th>Distribution date</th><th>As of</th><th>Savings used</th><th>Share</th><th>Amount</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Distribution date</th><th>Profit period</th><th>Savings used</th><th>Share</th><th>Amount</th><th>Status</th></tr></thead>
                   <tbody>
                     {workspace.profitAllocations.map((allocation) => (
                       <tr key={allocation.distributionId}>
                         <td>{formatDate(allocation.distributionDate)}</td>
-                        <td>{formatDate(allocation.asOfDate)}</td>
+                        <td>{allocation.fromDate ? `${formatDate(allocation.fromDate)} – ${formatDate(allocation.tillDate || allocation.asOfDate)}` : `Through ${formatDate(allocation.asOfDate)}`}</td>
                         <td>{money(allocation.savingsBalance)}</td>
                         <td>{allocation.sharePercent.toFixed(2)}%</td>
                         <td className={allocation.status === 'active' ? 'member-value-profit' : ''}>{money(allocation.amount)}</td>

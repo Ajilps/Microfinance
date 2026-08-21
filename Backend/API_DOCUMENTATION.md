@@ -1295,18 +1295,21 @@ All profit endpoints require an admin bearer token.
 
 ### Profit Overview and Allocation Preview
 
-**GET** `/api/admin/finance/profit?asOfDate=2026-08-12&amount=10000`
+**GET** `/api/admin/finance/profit?fromDate=2026-08-01&tillDate=2026-08-12&amount=10000`
 
 The amount is optional. When omitted, the API previews all currently
-distributable cash profit. The response includes:
+distributable cash profit. `fromDate` must be later than the till date of the
+latest active profit distribution; the same or an earlier date is rejected.
+The response includes:
 
 - loan distribution and repayment totals;
 - generated and collected interest;
 - outstanding principal and interest;
 - loan fines, attendance-fine income, other income, and other expenses;
 - accrued revenue, expenses, and profit;
-- cash profit remaining after earlier distributions;
-- a cent-accurate member allocation based on savings through the selected date.
+- cash profit generated within the inclusive selected period and remaining
+  after earlier distributions;
+- a cent-accurate member allocation based on cumulative savings through the till date.
 
 ### Record Profit Distribution
 
@@ -1314,7 +1317,8 @@ distributable cash profit. The response includes:
 
 ```json
 {
-  "asOfDate": "2026-08-12",
+  "fromDate": "2026-08-01",
+  "tillDate": "2026-08-12",
   "amount": 10000
 }
 ```
@@ -1322,7 +1326,8 @@ distributable cash profit. The response includes:
 The server recalculates availability and member shares before saving. A
 calculation fingerprint prevents the same active allocation from being
 recorded twice, including simultaneous duplicate requests. A distribution is
-stored as a payout snapshot and does not change weekly savings balances.
+stored as a payout snapshot and does not change weekly savings balances or
+create an Income & Expenses entry.
 
 ### Distribution History
 
@@ -1344,8 +1349,9 @@ profit totals.
 ```
 
 Marks an active distribution as reversed. Its amount becomes available for a
-future allocation again. The original member allocation snapshot, reversing
-admin, timestamp, and optional reason remain in distribution history.
+future allocation again without creating an Income & Expenses entry. The
+original member allocation snapshot, reversing admin, timestamp, and optional
+reason remain in distribution history.
 
 Un-allocation is rejected when it has been permanently disabled for the
 distribution.

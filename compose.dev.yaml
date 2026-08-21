@@ -24,9 +24,9 @@ services:
     environment:
       MONGO_URI: mongodb://mongodb:27017
       MONGO_DATABASE: test
-      BACKUP_FILE: /backup/backup_12_08_2026.gz
+      BACKUP_FILE: /backup/backup_18_08_2026.gz
     volumes:
-      - ../microfinance-dbbackup/backup_12_08_2026.gz:/backup/backup_12_08_2026.gz:ro
+      - ../microfinance-dbbackup/backup_18_08_2026.gz:/backup/backup_18_08_2026.gz:ro
       - ./docker/mongo/restore.sh:/scripts/restore.sh:ro
     entrypoint: ["bash", "/scripts/restore.sh"]
     depends_on:
