@@ -60,7 +60,7 @@ const ManageAttendance = () => {
       setUsers(memberUsers);
       // Initialize records object
       const init = {};
-      memberUsers.forEach(u => { init[u._id] = { status: 'present', note: '' }; });
+      memberUsers.forEach(u => { init[u._id] = { status: 'absent', note: '' }; });
       setRecords(init);
     } catch (err) {
       toast.error('Failed to load users: ' + (err.response?.data?.message || err.message));
@@ -142,7 +142,7 @@ const ManageAttendance = () => {
         users.forEach(user => {
           const saved = savedByUser.get(String(user._id));
           nextRecords[user._id] = {
-            status: saved?.status || 'present',
+            status: saved?.status || 'absent',
             note: saved?.note || '',
           };
         });
@@ -152,7 +152,7 @@ const ManageAttendance = () => {
         if (!cancelled) {
           const defaultRecords = {};
           users.forEach(user => {
-            defaultRecords[user._id] = { status: 'present', note: '' };
+            defaultRecords[user._id] = { status: 'absent', note: '' };
           });
           setRecords(defaultRecords);
           setExistingRecordCount(0);
@@ -184,7 +184,7 @@ const ManageAttendance = () => {
     try {
       const formattedRecords = users.map(u => ({
         userId: u._id,
-        status: records[u._id]?.status || 'present',
+        status: records[u._id]?.status || 'absent',
         note: records[u._id]?.note || '',
       }));
 
